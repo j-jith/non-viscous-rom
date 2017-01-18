@@ -1,0 +1,5 @@
+impeller_3d/
+matrices/
+old/
+output/
+*.pyc
