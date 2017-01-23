@@ -20,7 +20,7 @@ def func2(x):
     return -mu*x/(mu**2 + x**2)
 
 def func_fit(x, e0, e1, e2):
-    return e0 + e1*x + e2/x
+    return e0/x + e1 + e2*x
     #return e0 + e1*x + e2*x**2
 
 omega = np.linspace(2*pi*f_0, 2*pi*f_1, n_f)

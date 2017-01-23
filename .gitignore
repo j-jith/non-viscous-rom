@@ -1,10 +1,20 @@
+# Directories
 impeller_3d/
 matrices/
 old/
 output/
+soar/arnoldi/
+
+# File extensions
 *.pyc
 *.swp
 *.bkp
+
+# shell scripts
 */valgrind.sh
 */valmpi.sh
+
+# binaries
 */solver
+*/soar
+*/reduce

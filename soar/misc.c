@@ -1,11 +1,11 @@
 #include "globals.h"
 
-PetscReal* linspace(PetscReal start, PetscReal stop, unsigned int len)
+PetscReal* linspace(PetscReal start, PetscReal stop, PetscInt len)
 {
     PetscReal *array, h;
-    unsigned int i;
+    PetscInt i;
 
-    array = (PetscReal*)malloc(sizeof(PetscReal)*len);
+    PetscMalloc(sizeof(PetscReal)*len, &array);
 
     h = (stop-start)/(len-1);
 

@@ -1,9 +1,9 @@
 #include "globals.h"
 
-void read_arnoldi_basis(MPI_Comm comm, const char dirname[], unsigned int *ind_ip, unsigned int len_ip, unsigned int n_arn, Vec *Q)
+void read_arnoldi_basis(MPI_Comm comm, const char dirname[], PetscInt *ind_ip, PetscInt len_ip, PetscInt n_arn, Vec *Q)
 {
     char filename[100];
-    unsigned int i, j;
+    PetscInt i, j;
 
     Q = (Vec*)malloc(sizeof(Vec)*len_ip*n_arn);
 
@@ -18,9 +18,9 @@ void read_arnoldi_basis(MPI_Comm comm, const char dirname[], unsigned int *ind_i
     }
 }
 
-/*void generate_reduced_matrix(MPI_Comm comm, const char filename[], Vec *Q, unsigned int len_q, Mat *A)
+/*void generate_reduced_matrix(MPI_Comm comm, const char filename[], Vec *Q, PetscInt len_q, Mat *A)
 {
-    unsigned int i=0, j=0;
+    PetscInt i=0, j=0;
     Mat K;
     Vec *tmp_vec;
     PetscScalar *Aij;
@@ -86,9 +86,9 @@ void read_arnoldi_basis(MPI_Comm comm, const char dirname[], unsigned int *ind_i
     free(tmp_vec);
 }*/
 
-/*void generate_reduced_vector(MPI_Comm comm, const char filename[], Vec *Q, unsigned int len_q, Vec *b)
+/*void generate_reduced_vector(MPI_Comm comm, const char filename[], Vec *Q, PetscInt len_q, Vec *b)
 {
-    unsigned int i;
+    PetscInt i;
     Vec B;
     PetscScalar *b_i;
     PetscInt *ind_i;
@@ -120,10 +120,10 @@ void read_arnoldi_basis(MPI_Comm comm, const char dirname[], unsigned int *ind_i
     free(b_i); free(ind_i); 
 }*/
 
-void orthogonalize_arnoldi_disk(MPI_Comm comm, const char dirname[], unsigned int *ind_ip, unsigned int len_ip, unsigned int n_arn, Vec *Q, unsigned int *q_len)
+void orthogonalize_arnoldi_disk(MPI_Comm comm, const char dirname[], PetscInt *ind_ip, PetscInt len_ip, PetscInt n_arn, Vec *Q, PetscInt *q_len)
 {
     char filename[100];
-    unsigned int i, j, k;
+    PetscInt i, j, k;
     Vec q_tmp;
     PetscScalar t=0; // dot product holder
     PetscReal norm=0; 
@@ -193,9 +193,9 @@ void direct_solve_dense(MPI_Comm comm, Mat *A, Vec *b, Vec *u)
 }
 
 
-void generate_reduced_matrix(MPI_Comm comm, const char filename[], Vec *Q, unsigned int len_q, const char outfile[])
+void generate_reduced_matrix(MPI_Comm comm, const char filename[], Vec *Q, PetscInt len_q, const char outfile[])
 {
-    unsigned int i=0, j=0;
+    PetscInt i=0, j=0;
     Mat K;
     Vec *tmp_vec;
     PetscScalar **Aij;
@@ -256,9 +256,9 @@ void generate_reduced_matrix(MPI_Comm comm, const char filename[], Vec *Q, unsig
 
 }
 
-void generate_reduced_vector(MPI_Comm comm, const char filename[], Vec *Q, unsigned int len_q, const char outfile[])
+void generate_reduced_vector(MPI_Comm comm, const char filename[], Vec *Q, PetscInt len_q, const char outfile[])
 {
-    unsigned int i;
+    PetscInt i;
     Vec B;
     PetscScalar *b_i;
     FILE *fp;

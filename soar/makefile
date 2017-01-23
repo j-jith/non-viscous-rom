@@ -5,7 +5,7 @@ SOAR = soar
 SOAR_OBJ = soar_main.o multi_soar.o
 REDUCE = reduce
 REDUCE_OBJ = reduce_main.o reduce.o
-OBJFILES = file_io.o misc.o
+OBJFILES = file_io.o misc.o block_matrices.o
 
 include ${PETSC_DIR}/petsc/conf/variables
 include ${PETSC_DIR}/petsc/conf/rules

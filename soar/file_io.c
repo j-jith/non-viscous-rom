@@ -1,4 +1,5 @@
 #include "globals.h"
+//#include <yaml.h>
 
 void read_mat_file(MPI_Comm comm, const char filename[], Mat *A)
 {
@@ -56,11 +57,11 @@ void write_vec_file(MPI_Comm comm, const char filename[], Vec *b)
 }
 
 
-unsigned int count_rows(const char filename[])
+PetscInt count_rows(const char filename[])
 {
     FILE *fp;
     int ch;
-    unsigned int rows = 0;
+    PetscInt rows = 0;
 
     fp = fopen(filename, "r");
 
@@ -84,11 +85,11 @@ unsigned int count_rows(const char filename[])
     return rows;
 }
 
-Fitter* read_fitter(const char fit_file[], const char weight_file[], unsigned int *fit_len)
+Fitter* read_fitter(const char fit_file[], const char weight_file[], PetscInt *fit_len)
 {
     FILE *fp;
     Fitter *fit_list;
-    unsigned int n_fitter, n_weights, i, j;
+    PetscInt n_fitter, n_weights, i, j;
 
     n_fitter = count_rows(fit_file); // no. of fitters
     n_weights = count_rows(weight_file); // no. of weights (= number of frequency points)
@@ -123,3 +124,45 @@ Fitter* read_fitter(const char fit_file[], const char weight_file[], unsigned in
 
     return fit_list;
 }
+
+/*
+int read_params(const char filename[], Params params)
+{
+    FILE *fh = fopen(filename, "r");
+    yaml_parser_t parser;
+    yaml_event_t token;
+
+    // Initialize parser
+    if(!yaml_parser_initialize(&parser))
+        fputs("Failed to initialize parser!\n", stderr);
+    if(fh == NULL)
+        fputs("Failed to open file!\n", stderr);
+
+    // Set input file
+    yaml_parser_set_input_file(&parser, fh);
+
+    do
+    {
+        if (!yaml_parser_parse(&parser, &event))
+        {
+            printf("Parser error %d\n", parser.error);
+            exit(EXIT_FAILURE);
+        }
+
+        if (event.type == YAML_SCALAR_EVENT)
+        {
+            switch
+        }
+        else if (event.type == YAML_STREAM_END_EVENT)
+            yaml_event_delete(&event);
+
+    } while(event.type != YAML_STREAM_END_EVENT);
+    yaml_event_delete(&event);
+
+    // Clean-up
+    yaml_parser_delete(&parser);
+    fcolse(fh);
+
+    return 0;
+}
+*/

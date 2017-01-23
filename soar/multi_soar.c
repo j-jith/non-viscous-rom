@@ -1,13 +1,13 @@
 #include "globals.h"
 
-PetscReal** generate_local_coeffs(MPI_Comm comm, Fitter *fits, unsigned int n_fits, PetscReal ip, unsigned int n_ip)
+PetscReal** generate_local_coeffs(MPI_Comm comm, Fitter *fits, PetscInt n_fits, PetscReal ip, PetscInt n_ip)
 {
-    unsigned int i;
+    PetscInt i;
     PetscReal damp_cc[6], **coeffs;
-    coeffs = (PetscReal**)malloc(sizeof(PetscReal*)*3);
+    PetscMalloc(sizeof(PetscReal*)*3, &coeffs);
 
     PetscPrintf(comm, "Generating local coeffs. for frequency %f Hz ...\n", ip/2/M_PI);
-    
+
     // initialise coeffs
     for(i=0; i<6; i++)
     {
@@ -16,29 +16,32 @@ PetscReal** generate_local_coeffs(MPI_Comm comm, Fitter *fits, unsigned int n_fi
 
     for(i=0; i<n_fits; i++)
     {
-        damp_cc[0] += fits[i].c1[2]*fits[i].weights[n_ip]; // Dv contribution to M
-        damp_cc[1] += fits[i].c2[2]*fits[i].weights[n_ip]; // Dh contribution to M
+        damp_cc[0] += fits[i].c1[2]*fits[i].weights[n_ip]; // C1 contribution to M
+        damp_cc[1] += fits[i].c2[2]*fits[i].weights[n_ip]; // C2 contribution to M
 
-        damp_cc[2] += fits[i].c1[1]*fits[i].weights[n_ip]; // Dv contribution to D
-        damp_cc[3] += fits[i].c2[1]*fits[i].weights[n_ip]; // Dh contribution to D
+        damp_cc[2] += fits[i].c1[1]*fits[i].weights[n_ip]; // C1 contribution to D
+        damp_cc[3] += fits[i].c2[1]*fits[i].weights[n_ip]; // C2 contribution to D
 
-        damp_cc[4] += fits[i].c1[0]*fits[i].weights[n_ip]; // Dv contribution to K
-        damp_cc[5] += fits[i].c2[0]*fits[i].weights[n_ip]; // Dh contribution to K
+        damp_cc[4] += fits[i].c1[0]*fits[i].weights[n_ip]; // C1 contribution to K
+        damp_cc[5] += fits[i].c2[0]*fits[i].weights[n_ip]; // C2 contribution to K
     }
 
     // mass
-    coeffs[0] = (PetscReal*)malloc(sizeof(PetscReal)*2);
-    coeffs[0][0] = damp_cc[0]; 
+    PetscMalloc(sizeof(PetscReal)*2, &(coeffs[0]));
+    //coeffs[0] = (PetscReal*)malloc(sizeof(PetscReal)*2);
+    coeffs[0][0] = damp_cc[0];
     coeffs[0][1] = damp_cc[1];
 
     // damping
-    coeffs[1] = (PetscReal*)malloc(sizeof(PetscReal)*3);
+    PetscMalloc(sizeof(PetscReal)*3, &(coeffs[1]));
+    //coeffs[1] = (PetscReal*)malloc(sizeof(PetscReal)*3);
     coeffs[1][0] = 2*ip;
     coeffs[1][1] = damp_cc[2] + 2*ip*damp_cc[0];
     coeffs[1][2] = damp_cc[3] + 2*ip*damp_cc[1];
 
     // stiffness
-    coeffs[2] = (PetscReal*)malloc(sizeof(PetscReal)*3);
+    PetscMalloc(sizeof(PetscReal)*3, &(coeffs[2]));
+    //coeffs[2] = (PetscReal*)malloc(sizeof(PetscReal)*3);
     coeffs[2][0] = ip*ip;
     coeffs[2][1] = damp_cc[4] + ip*damp_cc[2] + ip*ip*damp_cc[0];
     coeffs[2][2] = damp_cc[5] + ip*damp_cc[3] + ip*ip*damp_cc[1];
@@ -115,7 +118,7 @@ void local_mat_mult(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, PetscReal **coeffs,
 }
 
 
-void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, unsigned int n, PetscReal** coeffs, Vec *q, unsigned int *q_size)
+void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n, PetscReal** coeffs, Vec *q, PetscInt *q_size)
 {
     PetscPrintf(comm, "SOAR at interpolation point ...\n");
 
@@ -123,11 +126,11 @@ void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, unsigned int 
     KSP ksp; PC pc; // solver and preconditioner context
     Vec *p; // *q; // Array of vectors for holding the Arnoldi basis
     Vec r, s; // Vectors to be used in SOAR loop
-    Vec r_tmp_1, r_tmp_2;
+    Vec r_tmp_1; //, r_tmp_2;
     PetscReal r_norm; // for holding vector norm
     PetscScalar t_ij; // for holding dot product
     
-    unsigned int i, j, k; // loop counters
+    PetscInt i, j, k; // loop counters
 
 
     // generate local stiffness matrix
@@ -139,7 +142,8 @@ void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, unsigned int 
 
 
     // allocate memory for vector arrays
-    p = (Vec*)malloc(sizeof(Vec)*n);
+    PetscMalloc(sizeof(Vec)*n, &p);
+    //p = (Vec*)malloc(sizeof(Vec)*n);
     //q = (Vec*)malloc(sizeof(Vec)*n);
 
     KSPCreate(comm, &ksp);
@@ -216,7 +220,7 @@ void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, unsigned int 
            {
                VecDestroy(&(p[k]));
            }
-           free(p);
+           PetscFree(p);
 
            // return basis
            //return q;
@@ -243,6 +247,8 @@ void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, unsigned int 
         (*q_size)++; // increment size of output array
     }
 
+    KSPDestroy(&ksp);
+
     // free memory
     MatDestroy(&K0);
     VecDestroy(&r); VecDestroy(&s); VecDestroy(&r_tmp_1); //VecDestroy(&r_tmp_2);
@@ -250,20 +256,20 @@ void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, unsigned int 
     {
         VecDestroy(&(p[k]));
     }
-    free(p);
+    PetscFree(p);
 
     PetscPrintf(comm, "Done. Returning %d Arnoldi basis.\n", n);
     // return basis
     //return q;
 }
 
-void orthogonalize_arnoldi(MPI_Comm comm, Vec *q_old, unsigned int *n_old, Vec *q_new, unsigned int *n_new)
+void orthogonalize_arnoldi(MPI_Comm comm, Vec *q_old, PetscInt *n_old, Vec *q_new, PetscInt *n_new)
 {
     PetscScalar t; // dot product holder
     PetscReal norm; 
-    unsigned int i, j;
+    PetscInt i, j;
 
-    unsigned int indices[*n_new], count;
+    PetscInt indices[*n_new], count;
 
     count = 0;
 
@@ -298,30 +304,30 @@ void orthogonalize_arnoldi(MPI_Comm comm, Vec *q_old, unsigned int *n_old, Vec *
     }
 
     // free pointers
-    free(q_new);
+    PetscFree(q_new);
     q_new = NULL;
 
     // increment the size of arnoldi basis
     (*n_old) += count;
 }
 
-void multi_soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, unsigned int n_ip, unsigned int n_arn, PetscReal *omega, unsigned int n_omega, Fitter *fits, unsigned int n_fits)
-//Vec* multi_soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, unsigned int n_ip, unsigned int n_arn, PetscReal *omega, unsigned int n_omega, Fitter *fits, unsigned int n_fits)
+void multi_soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n_ip, PetscInt n_arn, PetscReal *omega, PetscInt n_omega, Fitter *fits, PetscInt n_fits)
+//Vec* multi_soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n_ip, PetscInt n_arn, PetscReal *omega, PetscInt n_omega, Fitter *fits, PetscInt n_fits)
 {
     PetscReal *ind_tmp, **coeffs;
-    unsigned int i, j, *interp_ind;
+    PetscInt i, j, *interp_ind;
     //Vec *Q_old, *Q_new;
-    //unsigned int nq_old, nq_new;
+    //PetscInt nq_old, nq_new;
     Vec *Q;
-    unsigned int n_q, n_q_tot=0;
+    PetscInt n_q, n_q_tot=0;
     char filename[100];
 
     // find n_ip evenly distributed indices in omega
     ind_tmp = linspace(0, n_omega-1, n_ip+1);
-    interp_ind = (unsigned int*)malloc(sizeof(unsigned int)*n_ip);
+    PetscMalloc(sizeof(PetscInt)*n_ip, &interp_ind);
     for(i=0; i<n_ip; i++)
     {
-        interp_ind[i] = (unsigned int)round((ind_tmp[i] + ind_tmp[i+1])/2);
+        interp_ind[i] = (PetscInt)round((ind_tmp[i] + ind_tmp[i+1])/2);
     }
 
     for(i=0; i<n_ip; i++)
@@ -348,7 +354,7 @@ void multi_soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, unsigne
             write_vec_file(comm, filename, &(Q[j]));
             VecDestroy(&(Q[j]));
         }
-        free(Q); //Q = NULL;
+        PetscFree(Q); //Q = NULL;
 
         n_q_tot += n_q;
         
@@ -356,4 +362,30 @@ void multi_soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, unsigne
 
     //return Q_old;
 
+}
+
+void get_covariance(MPI_Comm comm, Vec *Q, PetscInt n, Mat *R)
+{
+    PetscInt i=0, j=0;
+    PetscScalar val;
+
+    MatCreate(comm, R);
+    MatSetSizes(*R, n, n, PETSC_DETERMINE, PETSC_DETERMINE);
+    MatSetType(*R, MATDENSE);
+    MatSetUp(*R);
+
+    for(i=0; i<n ; i++)
+    {
+        for(j=0; j<i; j++)
+        {
+            VecDot(Q[i], Q[j], &val);
+            MatSetValue(*R, i, j, val, INSERT_VALUES);
+            MatSetValue(*R, j, i, val, INSERT_VALUES);
+        }
+        VecDot(Q[i], Q[i], &val);
+        MatSetValue(*R, i, i, val, INSERT_VALUES);
+    }
+
+    MatAssemblyBegin(*R, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(*R, MAT_FINAL_ASSEMBLY);
 }
