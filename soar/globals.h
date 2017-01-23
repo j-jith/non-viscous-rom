@@ -1,9 +1,9 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
+//#include <stdio.h>
+//#include <stdlib.h>
+//#include <math.h>
 
 // petsc headers
 #include <petscsys.h>
@@ -11,7 +11,10 @@
 #include <petscvec.h>
 #include <petscksp.h>
 #include <petscviewer.h>
-//#include <petscmath.h>
+#include <petscmath.h>
+
+// slepc header
+#include <slepceps.h>
 
 #define TOLERANCE 1e-16
 #define NFREQ 801
@@ -51,7 +54,6 @@ void orthogonalize_arnoldi(MPI_Comm comm, Vec *q_old, PetscInt *n_old, Vec *q_ne
 void multi_soar(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b, PetscInt n_ip, PetscInt n_arn, PetscReal *omega, PetscInt n_omega, Fitter *fits, PetscInt n_fits);
 //Vec* multi_soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n_ip, PetscInt n_arn, PetscReal *omega, PetscInt n_omega, Fitter *fits, PetscInt n_fits);
 
-void get_covariance(MPI_Comm comm, Vec *Q, PetscInt n, Mat *R);
 
 // Reduce and solve - reduce.c
 void read_arnoldi_basis(MPI_Comm comm, const char dirname[], PetscInt *ind_ip, PetscInt len_ip, PetscInt n_arn, Vec *Q);
@@ -88,6 +90,13 @@ void create_block_mass(MPI_Comm comm, Mat *M, Mat *M1);
 void create_block_stiffness(MPI_Comm comm, Mat *M, Mat *M1);
 void create_block_damping(MPI_Comm comm, Mat *M, Mat *M1, Mat *M2);
 void create_block_load(MPI_Comm comm, Vec *f, Vec *f1);
+
+// POD functions for orthoginalisation
+void get_covariance(MPI_Comm comm, Vec *Q, PetscInt n, Mat *R);
+void get_pod_eigenvectors(MPI_Comm comm, Mat *A, PetscScalar tol,
+        Vec *xr, PetscInt *rank);
+void pod_orthogonalise(MPI_Comm comm, Vec *Q, PetscInt n_q, PetscScalar tol,
+        Vec *Q1, PetscInt *rank);
 
 
 // Miscellaneous - misc.c

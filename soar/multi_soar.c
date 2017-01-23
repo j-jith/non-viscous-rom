@@ -364,28 +364,3 @@ void multi_soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscIn
 
 }
 
-void get_covariance(MPI_Comm comm, Vec *Q, PetscInt n, Mat *R)
-{
-    PetscInt i=0, j=0;
-    PetscScalar val;
-
-    MatCreate(comm, R);
-    MatSetSizes(*R, n, n, PETSC_DETERMINE, PETSC_DETERMINE);
-    MatSetType(*R, MATDENSE);
-    MatSetUp(*R);
-
-    for(i=0; i<n ; i++)
-    {
-        for(j=0; j<i; j++)
-        {
-            VecDot(Q[i], Q[j], &val);
-            MatSetValue(*R, i, j, val, INSERT_VALUES);
-            MatSetValue(*R, j, i, val, INSERT_VALUES);
-        }
-        VecDot(Q[i], Q[i], &val);
-        MatSetValue(*R, i, i, val, INSERT_VALUES);
-    }
-
-    MatAssemblyBegin(*R, MAT_FINAL_ASSEMBLY);
-    MatAssemblyEnd(*R, MAT_FINAL_ASSEMBLY);
-}

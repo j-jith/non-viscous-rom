@@ -21,20 +21,19 @@ int main(int argc, char **args)
 
     Fitter *fit_list;
     PetscReal **coeffs;
-    Vec *Q, *Q_tmp;
-    PetscInt n_q=0, n_q_tot=0;
+    Vec *Q, *Q_tmp, *Q1=NULL;
+    PetscInt n_q=0, n_q_tot=0, pod_rank=0;
 
     Mat M0, K0, C0; // Small matrices
     Mat M, K, C1, C2; // Big matrices
     Vec b0; // Small vectors
     Vec b; // Big vectors
 
-    Mat R; // Covariance matrix
-
     PetscInt i, j;
     PetscErrorCode ierr;
 
-    PetscInitialize(&argc, &args, NULL, NULL);
+    //PetscInitialize(&argc, &args, NULL, NULL);
+    SlepcInitialize(&argc, &args, NULL, NULL);
 
     if(argc > 5)
     {
@@ -124,7 +123,16 @@ int main(int argc, char **args)
         PetscFree(coeffs);
     }
 
-    get_covariance(PETSC_COMM_WORLD, Q, n_q_tot, &R);
+    // Get new basis vectors using POD orthogonalisation
+    pod_orthogonalise(PETSC_COMM_WORLD, Q, n_q_tot, 1e-12, Q1, &pod_rank);
+
+    // Free the old basis vector memory
+    for(i=0; i<n_q_tot; i++)
+    {
+        VecDestroy(&(Q[i]));
+    }
+    PetscFree(Q);
+    PetscFree(Q_tmp);
 
     // Free work space
     MatDestroy(&M);
@@ -133,13 +141,9 @@ int main(int argc, char **args)
     MatDestroy(&C2);
     VecDestroy(&b);
 
-    for(i=0; i<n_q_tot; i++)
-    {
-        VecDestroy(&(Q[i]));
-    }
-    PetscFree(Q);
 
-    PetscFinalize();
+    SlepcFinalize();
+    //PetscFinalize();
 
     return ierr;
 }
