@@ -1,5 +1,6 @@
 # Parameter file
 from dolfin import Expression, Point
+from math import exp
 
 ## Frequency sweep
 ### Initial frequency
@@ -41,28 +42,31 @@ solid_dirichlet_boundary_id = [2]
 ### Corresponding prescribed disp.
 solid_dirichlet_values      = [(0., 0., 0.)]
 
-### Apply boundary load?
-solid_boundary_load_flag = False
-### Boundary IDs on which load is applied
-solid_load_boundary_id   = []
-### Corresponding boundary load values (as tuples)
-solid_load_values        = []
-
+# Class for point load
 class MyLoad(Expression):
     def eval(self, value, x):
         value[0] = 0
         value[1] = 0
         #value[2] = -1000
 
-        centre = Point(0.120+0.053, 0, 0.014)
+        centre = Point(0.12, 0)
 
-        if (x[0]-centre[0])**2 + (x[1]-centre[1])**2 + (x[2]-centre[2])**2 < 0.002**2:
-            value[2] = -1000
-        else:
-            value[2] = 0
+        value[2] = -100e6*exp(-((x[0]-centre[0])**2 + (x[1]-centre[1])**2)/1e-3)
+        #if ( (x[0]-centre[0])**2 + (x[1]-centre[1])**2 )  < 0.004**2:
+        #    value[2] = -1e3
+        #else:
+        #    value[2] = 0
 
     def value_shape(self):
         return (3,)
+
+### Apply boundary load?
+solid_boundary_load_flag = True
+### Boundary IDs on which load is applied
+solid_load_boundary_id   = [3]
+### Corresponding boundary load values (as tuples)
+solid_load_values        = [MyLoad(degree=degree_solid)]
+
 
 #my_load = Expression(('0','0','1e6*exp(-((x[0]-0.15)*(x[0]-0.15) + x[1]*x[1])/1e-4)'), degree=2)
 #my_load = Expression(('0.','0.','(x[0]-0.15)*(x[0]-0.15) + x[1]*x[1] < 0.01*0.01 ? 1e6 : 0.'), degree=1)
@@ -70,5 +74,5 @@ class MyLoad(Expression):
 #my_load = MyLoad()
 
 ### Apply body force?
-solid_body_force_flag = True
+solid_body_force_flag = False
 solid_body_force = MyLoad(degree=degree_solid)

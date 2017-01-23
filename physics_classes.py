@@ -197,15 +197,16 @@ class LinearSolid(PhysicsBase):
         if self.dimension != 2 and self.dimension != 3:
             sys.exit('Specified spatial dimension is not 2 or 3.')
 
+        # default body force
+        if self.dimension == 2:
+            self.body_force = Constant((0., 0.))
+        else:
+            self.body_force = Constant((0., 0., 0.))
+
         # Parse kwargs
         if 'body_force' in kwargs:
             if kwargs['body_force']:
                 self.body_force = kwargs['body_force']
-        else:
-            if self.dimension == 2:
-                self.body_force = Constant((0., 0.))
-            else:
-                self.body_force = Constant((0., 0., 0.))
 
         if 'natural_bc' in kwargs:
             self.natural_bc = kwargs['natural_bc']
@@ -263,7 +264,7 @@ class LinearSolid(PhysicsBase):
         # Natural boundary condition
         if len(self.natural_bc['values']) > 0:
             for value, boundary in zip(self.natural_bc['values'], self.natural_bc['boundaries']):
-                rhs += dot(Constant(value), v)*ds(boundary)
+                rhs += dot(value, v)*ds(boundary)
 
         # # Assembly
         # assemble(mass, keep_diagonal=True, tensor=self.M, form_compiler_parameters=self.ffc_params)

@@ -3,3 +3,8 @@ matrices/
 old/
 output/
 *.pyc
+*.swp
+*.bkp
+*/valgrind.sh
+*/valmpi.sh
+*/solver

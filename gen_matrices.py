@@ -8,33 +8,9 @@ from dump2petsc import dump2petsc, read_petsc
 from myparams import *
 
 import numpy as np
-from scipy import sparse, io
 import sys
 import os
-
-
-def write_vectors_pvd(physics, vectors, filename, **kwargs):
-
-    if 'dirname' in kwargs:
-        dirname = kwargs['dirname']
-    else:
-        dirname = '.'
-
-    V = physics.get_function_space()
-    func = Function(V)
-
-    create_dir(dirname)
-    fileh = File(dirname+'/'+filename+'.pvd')
-
-    if 'keys' in kwargs:
-        for vec, key in zip(vectors, kwargs['keys']):
-            func.vector()[:] = vec
-            fileh << (func, key)
-    else:
-        for vec in vectors:
-            func.vector()[:] = vec
-            fileh << func
-
+from petsc4py import PETSc
 
 
 if __name__ == '__main__':
@@ -66,9 +42,57 @@ if __name__ == '__main__':
     #io.mmwrite(output_dir+"/stiffness.mtx", K)
     #np.save(output_dir+"/force", struct.f.vec().getArray())
 
-    dump2petsc(struct.M.mat(), output_dir+'/mass.dat')
-    dump2petsc(struct.K.mat(), output_dir+'/stiffness.dat')
-    dump2petsc(struct.f.vec(), output_dir+'/force.dat')
+    #dump2petsc(struct.M.mat(), output_dir+'/mass.dat')
+    #dump2petsc(struct.K.mat(), output_dir+'/stiffness.dat')
+    #dump2petsc(struct.f.vec(), output_dir+'/force.dat')
 
+    print('Splitting real and imaginary components...')
+    # Proportional Damping matrix
+    M = struct.M.mat()
+    K = struct.K.mat()
+    C = K.duplicate(copy=True)
+    C.scale(0.01)
+    f = struct.f.vec()
+
+    dump2petsc(M, output_dir+'/mass.dat')
+    dump2petsc(K, output_dir+'/stiffness.dat')
+    dump2petsc(C, output_dir+'/damping.dat')
+    dump2petsc(f, output_dir+'/force.dat')
+
+    '''
+    # size of block
+    rows = M.size[0]
+
+    # Block mass matrix
+    mi, mj, mv = M.getValuesCSR()
+    mi = np.concatenate((mi[:-1], mi[:-1]+mi[-1], np.array([len(mv)*2], dtype='int32')))
+    mj = np.concatenate((mj, mj+rows))
+    mv = np.concatenate((-mv, -mv))
+    M1 = PETSc.Mat().createAIJWithArrays(size=(2*rows, 2*rows), csr=(mi, mj, mv))
+
+    # Block stiffness matrix
+    ki, kj, kv = K.getValuesCSR()
+    ki = np.concatenate((ki[:-1], ki[:-1]+ki[-1], np.array([len(kv)*2], dtype='int32')))
+    kj = np.concatenate((kj, kj+rows))
+    kv = np.concatenate((kv, kv))
+    K1 = PETSc.Mat().createAIJWithArrays(size=(2*rows, 2*rows), csr=(ki, kj, kv))
+
+    # Block damping matrix
+    ci, cj, cv = C.getValuesCSR()
+    ci = np.concatenate((ci[:-1], ci[:-1]+ci[-1], np.array([len(cv)*2], dtype='int32')))
+    cj = np.concatenate((cj+rows, cj))
+    cv = np.concatenate((-cv, cv))
+    C1 = PETSc.Mat().createAIJWithArrays(size=(2*rows, 2*rows), csr=(ci, cj, cv))
+
+    # Block force vector
+    fv = f.getArray()
+    f1 = PETSc.Vec().createWithArray(np.concatenate((fv, np.zeros(fv.shape))))
+
+
+    dump2petsc(M1, output_dir+'/mass.dat')
+    dump2petsc(K1, output_dir+'/stiffness.dat')
+    dump2petsc(C1, output_dir+'/damping.dat')
+    dump2petsc(f1, output_dir+'/force.dat')
 
     print("Done")
+    '''

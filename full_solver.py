@@ -8,13 +8,16 @@ from create_dir import create_dir
 from dump2petsc import dump2petsc, read_petsc
 from petsc4py import PETSc
 
+# for timing
+import time
+
 if __name__ == '__main__':
 
     matrix_dir = 'matrices'
     output_dir = 'output/full'
-    f_0 = 1.
-    f_1 = 100.
-    n_f = 1
+    f_0 = 300.
+    f_1 = 600.
+    n_f = 150
 
 
     print('Reading matrices from disk...')
@@ -64,10 +67,16 @@ if __name__ == '__main__':
     pc = ksp.getPC()
     pc.setType('lu')
 
-    for wi in w:
+    for i, wi in enumerate(w):
+        #start = time.clock()
+
         print('Solving for f = {:2f} Hz'.format(wi/2/np.pi))
         D = wi**2 * M1 + wi * C1 + K1
         u.append(M1.createVecRight())
 
         ksp.setOperators(D)
-        ksp.solve(f1, u[-1])
+        ksp.solve(f1, u[i])
+
+        #print('Time elapsed: {} s'.format(time.clock()-start))
+
+        dump2petsc(u[i], output_dir+'/u_{}'.format(i))
