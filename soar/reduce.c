@@ -88,7 +88,7 @@ void recover_vectors(MPI_Comm comm, Vec *u, PetscInt n_u, Vec *Q, PetscInt n_q,
     }
 }
 
-void direct_sweep(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
+void direct_sweep_piecewise(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
         PetscScalar omega_i, PetscScalar omega_f, PetscInt n_omega,
         Fitter *fits, PetscInt n_fits, Vec **u)
 {
@@ -131,6 +131,47 @@ void direct_sweep(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
             MatAXPY(A, alpha*fits[j].c1[0], *C1, DIFFERENT_NONZERO_PATTERN);
             MatAXPY(A, alpha*fits[j].c2[0], *C2, DIFFERENT_NONZERO_PATTERN);
         }
+
+        MatCreateVecs(A, NULL, &(u[0][i]));
+        KSPSetOperators(ksp, A, A);
+        KSPSolve(ksp, *b, u[0][i]);
+
+        MatDestroy(&A);
+    }
+
+    KSPDestroy(&ksp);
+
+}
+
+void direct_sweep(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
+        PetscScalar omega_i, PetscScalar omega_f, PetscInt n_omega,
+        PetscScalar mu, Vec **u)
+{
+    PetscScalar *omegas, omega2, g_real, g_imag;
+    PetscInt i;
+    Mat A;
+    KSP ksp; PC pc;
+
+    KSPCreate(comm, &ksp);
+    KSPSetType(ksp, KSPPREONLY);
+    KSPGetPC(ksp, &pc);
+    PCSetType(pc, PCLU);
+    PCFactorSetMatSolverPackage(pc, MATSOLVERMUMPS);
+
+    omegas = linspace(omega_i, omega_f, n_omega);
+
+    PetscMalloc1(n_omega, u);
+
+    for(i=0; i<n_omega; i++)
+    {
+        omega2 = omegas[i]*omegas[i];
+        g_real = (mu*mu) / (mu*mu + omegas[i]*omegas[i]);
+        g_imag = (-mu*omegas[i]) / (mu*mu + omegas[i]*omegas[i]);
+
+        MatDuplicate(*K, MAT_COPY_VALUES, &A);
+        MatAXPY(A, omega2, *M, DIFFERENT_NONZERO_PATTERN);
+        MatAXPY(A, omegas[i]*g_real, *C1, DIFFERENT_NONZERO_PATTERN);
+        MatAXPY(A, omegas[i]*g_imag, *C2, DIFFERENT_NONZERO_PATTERN);
 
         MatCreateVecs(A, NULL, &(u[0][i]));
         KSPSetOperators(ksp, A, A);

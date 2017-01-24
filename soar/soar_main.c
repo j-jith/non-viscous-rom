@@ -82,62 +82,79 @@ int main(int argc, char **args)
     fit_list = read_fitter(fit_file, weights_file, &n_fits);
 
     Q = NULL; n_q = 0; n_q_tot = 0;
-    // Multi-point SOAR loop
-    for(j=0; j<n_ip; j++)
+
+    if (n_ip == 1)
     {
-        // Generate fit coeffs at interpolation point
-        coeffs = generate_local_coeffs(MPI_COMM_WORLD, fit_list, n_fits, omega[ind_ip[j]], ind_ip[j]);
+        coeffs = generate_local_coeffs(MPI_COMM_WORLD, fit_list, n_fits,
+                omega[ind_ip[0]], ind_ip[0]);
 
-        //PetscMalloc(sizeof(Vec)*n_arn, &Q);
-        //soar(MPI_COMM_WORLD, &M, &C1, &C2, &K, &b, n_arn, coeffs, Q, &n_q);
-        //for(i=0; i<n_q; i++)
-        //{
-        //    sprintf(q_file, "arnoldi/basis_%d_%d.dat", ind_ip[j], i);
-        //    write_vec_file(MPI_COMM_WORLD, q_file, &(Q[i]));
-        //    VecDestroy(&(Q[i]));
-        //}
-        //for(i=n_q; i<n_arn; i++)
-        //    VecDestroy(&(Q[i]));
-
-        //ierr = PetscRealloc(sizeof(Vec)*n_arn, &Q);
-        Q_tmp = realloc(Q, sizeof(Vec)*(n_q_tot+n_arn));
-        if(Q_tmp == NULL)
+        PetscMalloc(sizeof(Vec)*n_arn, &Q);
+        soar(MPI_COMM_WORLD, &M, &C1, &C2, &K, &b, n_arn, coeffs, Q, &n_q_tot);
+        Q1 = Q;
+        pod_rank = n_q_tot;
+    }
+    else
+    {
+        // Multi-point SOAR loop
+        for(j=0; j<n_ip; j++)
         {
-            PetscPrintf(MPI_COMM_WORLD, "Error during REALLOC\n");
-            return -1;
-        }
-        else
-            Q = Q_tmp;
+            // Generate fit coeffs at interpolation point
+            coeffs = generate_local_coeffs(MPI_COMM_WORLD, fit_list, n_fits,
+                    omega[ind_ip[j]], ind_ip[j]);
 
-        soar(MPI_COMM_WORLD, &M, &C1, &C2, &K, &b, n_arn, coeffs, &(Q[n_q]), &n_q);
+            //PetscMalloc(sizeof(Vec)*n_arn, &Q);
+            //soar(MPI_COMM_WORLD, &M, &C1, &C2, &K, &b, n_arn, coeffs, Q, &n_q);
+            //for(i=0; i<n_q; i++)
+            //{
+            //    sprintf(q_file, "arnoldi/basis_%d_%d.dat", ind_ip[j], i);
+            //    write_vec_file(MPI_COMM_WORLD, q_file, &(Q[i]));
+            //    VecDestroy(&(Q[i]));
+            //}
+            //for(i=n_q; i<n_arn; i++)
+            //    VecDestroy(&(Q[i]));
 
-        /* // Write basis vectors to disk
-        for(i=0; i<n_q; i++)
-        {
-            sprintf(q_file, "output/arnoldi/basis_%d_%d.dat", ind_ip[j], i);
-            write_vec_file(MPI_COMM_WORLD, q_file, &(Q[i+n_q_tot]));
+            //ierr = PetscRealloc(sizeof(Vec)*n_arn, &Q);
+            Q_tmp = realloc(Q, sizeof(Vec)*(n_q_tot+n_arn));
+            if(Q_tmp == NULL)
+            {
+                PetscPrintf(MPI_COMM_WORLD, "Error during REALLOC\n");
+                return -1;
+            }
+            else
+                Q = Q_tmp;
+
+            soar(MPI_COMM_WORLD, &M, &C1, &C2, &K, &b, n_arn, coeffs,
+                    &(Q[n_q]), &n_q);
+
+            /* // Write basis vectors to disk
+               for(i=0; i<n_q; i++)
+               {
+               sprintf(q_file, "output/arnoldi/basis_%d_%d.dat", ind_ip[j], i);
+               write_vec_file(MPI_COMM_WORLD, q_file, &(Q[i+n_q_tot]));
             //VecDestroy(&(Q[i]));
+            }
+            */
+            for(i=n_q; i<n_arn; i++)
+                VecDestroy(&(Q[i+n_q_tot]));
+
+            n_q_tot += n_q;
+
+            // In-loop clean-up
+            //PetscFree(Q);
+            PetscFree(coeffs);
         }
-        */
-        for(i=n_q; i<n_arn; i++)
-            VecDestroy(&(Q[i+n_q_tot]));
 
-        n_q_tot += n_q;
 
-        // In-loop clean-up
-        //PetscFree(Q);
-        PetscFree(coeffs);
+        // Get new basis vectors using POD orthogonalisation
+        pod_orthogonalise(PETSC_COMM_WORLD, Q, n_q_tot, 0.0, &Q1, &pod_rank);
+        // Free the old basis vector memory
+        for(i=0; i<n_q_tot; i++)
+        {
+            VecDestroy(&(Q[i]));
+        }
+        PetscFree(Q);
     }
 
-    // Get new basis vectors using POD orthogonalisation
-    pod_orthogonalise(PETSC_COMM_WORLD, Q, n_q_tot, 0.0, &Q1, &pod_rank);
-    // Free the old basis vector memory
-    for(i=0; i<n_q_tot; i++)
-    {
-        VecDestroy(&(Q[i]));
-    }
-    PetscFree(Q);
-    //PetscFree(Q_tmp);
 
     // DEBUG: check if new basis vectors are orthogonal
     //check_orthogonality(PETSC_COMM_WORLD, Q1, pod_rank);
@@ -161,7 +178,11 @@ int main(int argc, char **args)
     // Solve reduced problem
     PetscPrintf(PETSC_COMM_WORLD, "Frequency sweep of reduced system...\n");
     direct_sweep(PETSC_COMM_WORLD, &Mr, &C1r, &C2r, &Kr, &br,
+        omega_i, omega_f, omega_len, 1.0, &ur);
+    /*
+    direct_sweep_approx(PETSC_COMM_WORLD, &Mr, &C1r, &C2r, &Kr, &br,
         omega_i, omega_f, omega_len, fit_list, n_fits, &ur);
+    */
     PetscPrintf(PETSC_COMM_WORLD, "Done\n");
 
     // Free reduced matrices

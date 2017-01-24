@@ -19,13 +19,13 @@ if __name__ == '__main__':
     # # full solution
     # solution_dir = 'output/full/'
     # solution_prefix = 'solution_'
-    # output_file = 'output/point.csv'
+    # output_file = 'output/point_full.csv'
     # output_dir = 'output/plot/'
 
     # SOAR
     solution_dir = 'soar/output/solution/'
     solution_prefix = ''
-    output_file = 'soar/output/point.csv'
+    output_file = 'soar/output/point_red.csv'
     output_dir = 'soar/output/plot/'
 
     solution_n = 150 # total number of solutions

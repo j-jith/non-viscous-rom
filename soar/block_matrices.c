@@ -62,11 +62,11 @@ void get_block_diag_csr(MPI_Comm comm,
 
     for(i=0; i<ai[nrows]; i++)
     {
-        (*aj1)[i] = sign * aj[i];
+        (*aj1)[i] = aj[i];
         (*aj1)[i+ai[nrows]] = aj[i]+nrows;
 
         (*av1)[i] = sign * av[i];
-        (*av1)[i+ai[nrows]] = av[i];
+        (*av1)[i+ai[nrows]] = sign * av[i];
     }
 
 }
@@ -194,7 +194,22 @@ void create_block_mass(MPI_Comm comm, Mat *M, Mat *M1)
 
 void create_block_stiffness(MPI_Comm comm, Mat *M, Mat *M1)
 {
-    create_block_mass(comm, M, M1);
+    PetscInt *ai, *aj, *ai1, *aj1;
+    PetscScalar *av, *av1;
+    PetscInt nrows;
+
+    // Get CSR arrays of small matrix
+    get_csr(comm, M, &ai, &aj, &av, &nrows);
+
+    // Create CSR arrays of big matrix
+    get_block_stiffness_csr(comm, ai, aj, av, nrows, &ai1, &aj1, &av1);
+
+    // Create big matrix
+    MatCreateMPIAIJWithArrays(comm, 2*nrows, 2*nrows, 2*nrows, 2*nrows,
+            ai1, aj1, av1, M1);
+
+    PetscFree(ai); PetscFree(aj); PetscFree(av);
+    PetscFree(ai1); PetscFree(aj1); PetscFree(av1);
 }
 
 void create_block_damping(MPI_Comm comm, Mat *M, Mat *M1, Mat *M2)

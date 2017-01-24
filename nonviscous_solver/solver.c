@@ -365,7 +365,7 @@ int main(int argc, char **args)
     PetscInt i = 0;
 
     // Damping parameters
-    PetscScalar mu = 1e-2;
+    PetscScalar mu = 1.0;
     PetscScalar g_real, g_imag;
 
 
@@ -408,6 +408,7 @@ int main(int argc, char **args)
     // Destroy small matrices
     MatDestroy(&M0);
     MatDestroy(&K0);
+    MatDestroy(&C0);
     VecDestroy(&b0);
 
 
@@ -439,6 +440,7 @@ int main(int argc, char **args)
         //create_block_damping(PETSC_COMM_WORLD, &C0, mu, omega, &C);
         g_real = (mu*mu) / (mu*mu + omega*omega);
         g_imag = (-mu*omega) / (mu*mu + omega*omega);
+        PetscPrintf(PETSC_COMM_WORLD, "mu: (%e, %e)\n", g_real, g_imag);
         MatDuplicate(C1, MAT_COPY_VALUES, &C);
         MatScale(C, g_real);
         MatAXPY(C, g_imag, C2, DIFFERENT_NONZERO_PATTERN);
@@ -469,7 +471,6 @@ int main(int argc, char **args)
     MatDestroy(&K);
     MatDestroy(&C1);
     MatDestroy(&C2);
-    MatDestroy(&C0);
     VecDestroy(&b);
     VecDestroy(&u);
 

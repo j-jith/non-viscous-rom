@@ -95,9 +95,15 @@ void check_orthogonality(MPI_Comm comm, Vec *Q, PetscInt n_q);
 void direct_solve_dense(MPI_Comm comm, Mat *A, Vec *b, Vec *u);
 void project_matrix(MPI_Comm comm, Mat *M, Vec *Q, PetscInt n_q, Mat *A);
 void project_vector(MPI_Comm comm, Vec *u, Vec *Q, PetscInt n_q, Vec *u_new);
-void direct_sweep(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
+
+void direct_sweep_approx(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
         PetscScalar omega_i, PetscScalar omega_f, PetscInt n_omega,
         Fitter *fits, PetscInt n_fits, Vec **u);
+
+void direct_sweep(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
+        PetscScalar omega_i, PetscScalar omega_f, PetscInt n_omega,
+        PetscScalar mu, Vec **u);
+
 void recover_vector(MPI_Comm comm, Vec *u, Vec *Q, PetscInt n_q, Vec *u_new);
 void recover_vectors(MPI_Comm comm, Vec *u, PetscInt n_u, Vec *Q, PetscInt n_q,
         Vec **u_new);
