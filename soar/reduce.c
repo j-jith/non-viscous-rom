@@ -1,173 +1,145 @@
 #include "globals.h"
 
-void read_arnoldi_basis(MPI_Comm comm, const char dirname[], PetscInt *ind_ip, PetscInt len_ip, PetscInt n_arn, Vec *Q)
+void project_matrix(MPI_Comm comm, Mat *M, Vec *Q, PetscInt n_q, Mat *A)
 {
-    char filename[100];
     PetscInt i, j;
+    Vec tmp;
+    PetscScalar val;
 
-    Q = (Vec*)malloc(sizeof(Vec)*len_ip*n_arn);
+    MatCreate(comm, A);
+    MatSetSizes(*A, n_q, n_q, PETSC_DETERMINE, PETSC_DETERMINE);
+    MatSetType(*A, MATDENSE);
+    MatSetUp(*A);
 
-    for(i=0; i<len_ip; i++)
+    MatCreateVecs(*M, NULL, &tmp);
+
+    for(i=0; i<n_q; i++)
     {
-        for(j=0; j<n_arn; j++)
+        MatMult(*M, Q[i], tmp);
+        for(j=0; j<n_q; j++)
         {
-            sprintf(filename, "%s/basis_%d_%d.dat", dirname, ind_ip[i], j);
-            read_vec_file(comm, filename, &(Q[i*len_ip+j]));
-            strcpy(filename, "");
+            VecDot(Q[j], Q[i], &val);
+            MatSetValue(*A, i, j, val, INSERT_VALUES);
         }
+    }
+
+    MatAssemblyBegin(*A, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(*A, MAT_FINAL_ASSEMBLY);
+}
+
+void project_vector(MPI_Comm comm, Vec *u, Vec *Q, PetscInt n_q, Vec *u_new)
+{
+    PetscInt i;
+    PetscScalar val;
+
+    VecCreate(comm, u_new);
+    VecSetSizes(*u_new, n_q, n_q);
+    VecSetUp(*u_new);
+
+    for(i=0; i<n_q; i++)
+    {
+        VecDot(Q[i], *u, &val);
+        VecSetValue(*u_new, i, val, INSERT_VALUES);
+    }
+
+    VecAssemblyBegin(*u_new);
+    VecAssemblyEnd(*u_new);
+}
+
+void recover_vector(MPI_Comm comm, Vec *u, Vec *Q, PetscInt n_q, Vec *u_new)
+{
+    PetscInt i;
+    PetscScalar *vals;
+
+    VecDuplicate(Q[0], u_new);
+    VecSet(*u_new, 0);
+
+    VecGetArray(*u, &vals);
+
+    for(i=0; i<n_q; i++)
+    {
+        VecAXPY(*u_new, vals[i], Q[i]);
+    }
+
+    VecRestoreArray(*u, &vals);
+}
+
+void recover_vectors(MPI_Comm comm, Vec *u, PetscInt n_u, Vec *Q, PetscInt n_q,
+        Vec **u_new)
+{
+    PetscInt i, j;
+    PetscScalar *vals;
+
+    PetscMalloc1(n_u, u_new);
+
+    for(j=0; j<n_u; j++)
+    {
+        VecDuplicate(Q[0], &(u_new[0][j]));
+        VecSet(u_new[0][j], 0);
+
+        VecGetArray(u[j], &vals);
+
+        for(i=0; i<n_q; i++)
+        {
+            VecAXPY(u_new[0][j], vals[i], Q[i]);
+        }
+
+        VecRestoreArray(u[j], &vals);
     }
 }
 
-/*void generate_reduced_matrix(MPI_Comm comm, const char filename[], Vec *Q, PetscInt len_q, Mat *A)
+void direct_sweep(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
+        PetscScalar omega_i, PetscScalar omega_f, PetscInt n_omega,
+        Fitter *fits, PetscInt n_fits, Vec **u)
 {
-    PetscInt i=0, j=0;
-    Mat K;
-    Vec *tmp_vec;
-    PetscScalar *Aij;
-    PetscInt *ind_i, *ind_j;
+    PetscScalar *omegas, alpha, omega2;
+    PetscInt i, j;
+    Mat A;
+    KSP ksp; PC pc;
 
-    PetscInt istart, iend;
+    KSPCreate(comm, &ksp);
+    KSPSetType(ksp, KSPPREONLY);
+    KSPGetPC(ksp, &pc);
+    PCSetType(pc, PCLU);
 
-    Aij = (PetscScalar*)malloc(sizeof(PetscScalar)*len_q*len_q);
-    ind_i = (PetscInt*)malloc(sizeof(PetscInt)*len_q*len_q);
-    ind_j = (PetscInt*)malloc(sizeof(PetscInt)*len_q*len_q);
+    omegas = linspace(omega_i, omega_f, n_omega);
 
-    tmp_vec = (Vec*)malloc(sizeof(Vec)*len_q);
+    PetscMalloc1(n_omega, u);
 
-    read_mat_file(comm, filename, &K);
-
-    PetscPrintf(comm, "Populating reduced matrix ...\n");
-
-    PetscPrintf(comm, "DEBUG: For loop I.\n");
-    for(i=0; i<len_q; i++)
+    for(i=0; i<n_omega; i++)
     {
-        MatCreateVecs(K, NULL, &(tmp_vec[i]));
-        MatMult(K, Q[i], tmp_vec[i]);
-    }
+        omega2 = omegas[i]*omegas[i];
 
-    PetscPrintf(comm, "DEBUG: For loop II.\n");
-    for(i=0; i<len_q; i++)
-    {
-        for(j=0; j<len_q; j++)
+        MatDuplicate(*K, MAT_COPY_VALUES, &A);
+        MatAXPY(A, omega2, *M, DIFFERENT_NONZERO_PATTERN);
+
+        for(j=0; j<n_fits; j++)
         {
-            VecDot(tmp_vec[j], Q[i], &(Aij[i*len_q+j]));
-            ind_i[i*len_q+j] = i;
-            ind_j[i*len_q+j] = j;
+            alpha = fits[j].weights[i];
+
+            // mass contribution
+            MatAXPY(A, omega2*alpha*fits[j].c1[2], *C1, DIFFERENT_NONZERO_PATTERN);
+            MatAXPY(A, omega2*alpha*fits[j].c2[2], *C2, DIFFERENT_NONZERO_PATTERN);
+
+            // damping contribution
+            MatAXPY(A, omegas[i]*alpha*fits[j].c1[1], *C1,
+                    DIFFERENT_NONZERO_PATTERN);
+            MatAXPY(A, omegas[i]*alpha*fits[j].c2[1], *C2,
+                    DIFFERENT_NONZERO_PATTERN);
+
+            // stiffness contribution
+            MatAXPY(A, alpha*fits[j].c1[0], *C1, DIFFERENT_NONZERO_PATTERN);
+            MatAXPY(A, alpha*fits[j].c2[0], *C2, DIFFERENT_NONZERO_PATTERN);
         }
+
+        MatCreateVecs(A, NULL, &(u[0][i]));
+        KSPSetOperators(ksp, A, A);
+        KSPSolve(ksp, *b, u[0][i]);
+
+        MatDestroy(&A);
     }
 
-    PetscPrintf(comm, "DEBUG: Setting values.\n");
-    //MatCreate(comm, A);
-    //MatSetSizes(*A, PETSC_DECIDE, PETSC_DECIDE, len_q, len_q);
-    //MatSetType(*A, MATDENSE);
-    //MatSetFromOptions(*A);
-    
-    MatGetOwnershipRange(*A, &istart, &iend);
-    for(i=istart; i<iend; i++)
-    {
-        PetscPrintf(comm, "DEBUG: Row %d.\n", i);
-        MatSetValues(*A, len_q, &(ind_i[i*len_q]), len_q, &(ind_j[i*len_q]), &(Aij[i*len_q]), INSERT_VALUES);
-    }
-    MatAssemblyBegin(*A, MAT_FINAL_ASSEMBLY);
-    MatAssemblyEnd(*A, MAT_FINAL_ASSEMBLY);
-
-    //MatSetValues(*A, len_q, ind_i, len_q, ind_j, Aij, INSERT_VALUES);
-    //MatCreateDense(comm, PETSC_DECIDE, PETSC_DECIDE, len_q, len_q, NULL, A);
-    //MatSetFromOptions(*A);
-
-    MatDestroy(&K);
-    //VecDestroy(&tmp_vec);
-    free(Aij); free(ind_i); free(ind_j);
-
-    for(i=0; i<len_q; i++)
-    {
-        VecDestroy(&(tmp_vec[j]));
-    }
-    free(tmp_vec);
-}*/
-
-/*void generate_reduced_vector(MPI_Comm comm, const char filename[], Vec *Q, PetscInt len_q, Vec *b)
-{
-    PetscInt i;
-    Vec B;
-    PetscScalar *b_i;
-    PetscInt *ind_i;
-
-    b_i = (PetscScalar*)malloc(sizeof(PetscScalar)*len_q);
-    ind_i = (PetscInt*)malloc(sizeof(PetscInt)*len_q);
-
-    read_vec_file(comm, filename, &B);
-
-    PetscPrintf(comm, "Populating reduced vector ...\n");
-
-    VecCreate(comm, b);
-    VecSetSizes(*b, PETSC_DECIDE, len_q);
-    VecSetFromOptions(*b);
-
-    for(i=0; i<len_q; i++)
-    {
-            
-        VecDot(Q[i], B, &(b_i[i]));
-        //ind_i[i] = i;
-    }
-
-    //VecSetValues(*b, len_q, ind_i, b_i, INSERT_VALUES);
-    VecCreateSeqWithArray(comm, 1, len_q, b_i, b);
-    VecAssemblyBegin(*b);
-    VecAssemblyEnd(*b);
-
-    VecDestroy(&B);
-    free(b_i); free(ind_i); 
-}*/
-
-void orthogonalize_arnoldi_disk(MPI_Comm comm, const char dirname[], PetscInt *ind_ip, PetscInt len_ip, PetscInt n_arn, Vec *Q, PetscInt *q_len)
-{
-    char filename[100];
-    PetscInt i, j, k;
-    Vec q_tmp;
-    PetscScalar t=0; // dot product holder
-    PetscReal norm=0; 
-
-    PetscPrintf(comm, "Reading and orthogonalising union of Arnoldi basis");
-
-    (*q_len) = 0;
-    //Q = (Vec*)malloc(sizeof(Vec)*len_ip*n_arn);
-
-    for(i=0; i<len_ip; i++)
-    {
-        for(j=0; j<n_arn; j++)
-        {
-            sprintf(filename, "%s/basis_%d_%d.dat", dirname, ind_ip[i], j);
-            read_vec_file(comm, filename, &q_tmp);
-            strcpy(filename, "");
-
-            VecNorm(q_tmp, NORM_2, &norm);
-
-            // DEBUG
-            PetscPrintf(comm, "Norm = %le\n", norm);
-
-            VecScale(q_tmp, 1/norm);
-
-            for(k=0; k<(*q_len); k++)
-            {
-                VecDot(Q[k], q_tmp, &t);
-                VecAXPY(q_tmp, -t, Q[k]);
-            }
-
-            VecNorm(q_tmp, NORM_2, &norm);
-            if(norm > TOLERANCE)
-            {
-                VecScale(q_tmp, 1/norm);
-                VecDuplicate(q_tmp, &(Q[(*q_len)]));
-                VecCopy(q_tmp, Q[(*q_len)]);
-                (*q_len)++;
-            }
-            VecDestroy(&q_tmp);
-
-        }
-    }
-
-    PetscPrintf(comm, "Returning %d Arnoldi basis.\n", (*q_len));
+    KSPDestroy(&ksp);
 
 }
 
@@ -190,102 +162,7 @@ void direct_solve_dense(MPI_Comm comm, Mat *A, Vec *b, Vec *u)
 
     KSPSolve(ksp, *b, *u);
 
-}
-
-
-void generate_reduced_matrix(MPI_Comm comm, const char filename[], Vec *Q, PetscInt len_q, const char outfile[])
-{
-    PetscInt i=0, j=0;
-    Mat K;
-    Vec *tmp_vec;
-    PetscScalar **Aij;
-
-    FILE *fp;
-
-
-    Aij = (PetscScalar**)malloc(sizeof(PetscScalar*)*len_q);
-    for(i=0; i<len_q; i++)
-    {
-        Aij[i] = (PetscScalar*)malloc(sizeof(PetscScalar)*len_q);
-    }
-
-    tmp_vec = (Vec*)malloc(sizeof(Vec)*len_q);
-
-    read_mat_file(comm, filename, &K);
-
-    PetscPrintf(comm, "Populating reduced matrix ...\n");
-
-    PetscPrintf(comm, "DEBUG: For loop I.\n");
-    for(i=0; i<len_q; i++)
-    {
-        MatCreateVecs(K, NULL, &(tmp_vec[i]));
-        MatMult(K, Q[i], tmp_vec[i]);
-    }
-
-    PetscPrintf(comm, "DEBUG: For loop II.\n");
-    for(i=0; i<len_q; i++)
-    {
-        PetscPrintf(comm, "Row %d.\n", i);
-        for(j=0; j<len_q; j++)
-        {
-            VecDot(tmp_vec[j], Q[i], &(Aij[i][j]));
-        }
-    }
-
-    // write to file
-    fp = fopen(outfile, "w");
-    for(i=0; i<len_q; i++)
-    {
-        for(j=0; j<len_q; j++)
-        {
-            fprintf(fp, "%le ", Aij[i][j]);
-        }
-        fprintf(fp, "\n");
-    }
-    fclose(fp);
-
-
-    for(i=0; i<len_q; i++)
-    {
-        VecDestroy(&(tmp_vec[j]));
-    }
-    free(tmp_vec);
-    MatDestroy(&K);
-    //VecDestroy(&tmp_vec);
-    free(Aij); 
+    KSPDestroy(&ksp);
 
 }
 
-void generate_reduced_vector(MPI_Comm comm, const char filename[], Vec *Q, PetscInt len_q, const char outfile[])
-{
-    PetscInt i;
-    Vec B;
-    PetscScalar *b_i;
-    FILE *fp;
-
-    b_i = (PetscScalar*)malloc(sizeof(PetscScalar)*len_q);
-
-    read_vec_file(comm, filename, &B);
-
-    PetscPrintf(comm, "Populating reduced vector ...\n");
-
-
-    for(i=0; i<len_q; i++)
-    {
-            
-        VecDot(Q[i], B, &(b_i[i]));
-        //ind_i[i] = i;
-    }
-
-    // write to file
-    fp = fopen(outfile, "w");
-    for(i=0; i<len_q; i++)
-    {
-        fprintf(fp, "%le ", b_i[i]);
-    }
-    fclose(fp);
-
-
-    VecDestroy(&B);
-    free(b_i);
-}

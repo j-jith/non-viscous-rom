@@ -55,14 +55,6 @@ void multi_soar(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b, PetscIn
 //Vec* multi_soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n_ip, PetscInt n_arn, PetscReal *omega, PetscInt n_omega, Fitter *fits, PetscInt n_fits);
 
 
-// Reduce and solve - reduce.c
-void read_arnoldi_basis(MPI_Comm comm, const char dirname[], PetscInt *ind_ip, PetscInt len_ip, PetscInt n_arn, Vec *Q);
-//void generate_reduced_matrix(MPI_Comm comm, const char filename[], Vec *Q, PetscInt len_q, Mat *A);
-//void generate_reduced_vector(MPI_Comm comm, const char filename[], Vec *Q, PetscInt len_q, Vec *b);
-void generate_reduced_matrix(MPI_Comm comm, const char filename[], Vec *Q, PetscInt len_q, const char outfile[]);
-void generate_reduced_vector(MPI_Comm comm, const char filename[], Vec *Q, PetscInt len_q, const char outfile[]);
-void orthogonalize_arnoldi_disk(MPI_Comm comm, const char dirname[], PetscInt *ind_ip, PetscInt len_ip, PetscInt n_arn, Vec *Q, PetscInt *q_len);
-void direct_solve_dense(MPI_Comm comm, Mat *A, Vec *b, Vec *u);
 
 // Construct full (block) matrices from smaller matrices - block_matrices.c
 void get_csr(MPI_Comm comm, Mat *M,
@@ -91,13 +83,24 @@ void create_block_stiffness(MPI_Comm comm, Mat *M, Mat *M1);
 void create_block_damping(MPI_Comm comm, Mat *M, Mat *M1, Mat *M2);
 void create_block_load(MPI_Comm comm, Vec *f, Vec *f1);
 
-// POD functions for orthoginalisation
+// POD functions for orthogonalisation
 void get_covariance(MPI_Comm comm, Vec *Q, PetscInt n, Mat *R);
 void get_pod_eigenvectors(MPI_Comm comm, Mat *A, PetscScalar tol,
         Vec **xr, PetscInt *rank);
 void pod_orthogonalise(MPI_Comm comm, Vec *Q, PetscInt n_q, PetscScalar tol,
         Vec **Q1, PetscInt *rank);
+void check_orthogonality(MPI_Comm comm, Vec *Q, PetscInt n_q);
 
+// Reduce and solve - reduce.c
+void direct_solve_dense(MPI_Comm comm, Mat *A, Vec *b, Vec *u);
+void project_matrix(MPI_Comm comm, Mat *M, Vec *Q, PetscInt n_q, Mat *A);
+void project_vector(MPI_Comm comm, Vec *u, Vec *Q, PetscInt n_q, Vec *u_new);
+void direct_sweep(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
+        PetscScalar omega_i, PetscScalar omega_f, PetscInt n_omega,
+        Fitter *fits, PetscInt n_fits, Vec **u);
+void recover_vector(MPI_Comm comm, Vec *u, Vec *Q, PetscInt n_q, Vec *u_new);
+void recover_vectors(MPI_Comm comm, Vec *u, PetscInt n_u, Vec *Q, PetscInt n_q,
+        Vec **u_new);
 
 // Miscellaneous - misc.c
 PetscReal* linspace(PetscReal start, PetscReal stop, PetscInt len);

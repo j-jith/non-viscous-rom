@@ -12,15 +12,25 @@ import numpy as np
 from myparams import *
 from physics_classes import *
 
+from create_dir import create_dir
 
 if __name__ == '__main__':
 
-    solution_dir = 'output/full/'
+    # # full solution
+    # solution_dir = 'output/full/'
+    # solution_prefix = 'solution_'
+    # output_file = 'output/point.csv'
+    # output_dir = 'output/plot/'
+
+    # SOAR
+    solution_dir = 'soar/output/solution/'
+    solution_prefix = ''
+    output_file = 'soar/output/point.csv'
+    output_dir = 'soar/output/plot/'
+
     solution_n = 150 # total number of solutions
     solution_point = np.array([0.12, 0., 0.01])
     solution_axis = 2
-    output_file = 'output/point.csv'
-    output_dir = 'output/plot/'
 
     solid_props = {'E': E_s, 'nu': nu_s, 'rho': rho_s}
     solid_dirichlet_bc = {'values': solid_dirichlet_values, 'boundaries': solid_dirichlet_boundary_id}
@@ -51,6 +61,8 @@ if __name__ == '__main__':
     u_binary = PETSc.Vec()
     u_binary.create(PETSc.COMM_WORLD)
 
+    create_dir(output_dir)
+
     real_file = File(output_dir+'solution_real.pvd')
     imag_file = File(output_dir+'solution_imag.pvd')
 
@@ -59,7 +71,8 @@ if __name__ == '__main__':
         #print('Reading {}...'.format(f))
         #viewer = PETSc.Viewer().createBinary(solution_dir+f,'r')
         print('Reading solution {}...'.format(i))
-        viewer = PETSc.Viewer().createBinary(solution_dir+'solution_{}.dat'.format(i),'r')
+        viewer = PETSc.Viewer().createBinary(solution_dir +
+                solution_prefix + '{}.dat'.format(i),'r')
         u_binary.load(viewer)
         viewer.destroy()
 

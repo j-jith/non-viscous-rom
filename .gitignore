@@ -3,7 +3,7 @@ impeller_3d/
 matrices/
 old/
 output/
-soar/arnoldi/
+soar/output/
 
 # File extensions
 *.pyc

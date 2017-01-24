@@ -27,10 +27,14 @@ int main(int argc, char **args)
     Mat M0, K0, C0; // Small matrices
     Mat M, K, C1, C2; // Big matrices
     Vec b0; // Small vectors
-    Vec b; // Big vectors
+    Vec b, *u_full=NULL; // Big vectors
+
+    // Reduced matrices
+    Mat Mr, Kr, C1r, C2r;
+    Vec br, *ur=NULL;
 
     PetscInt i, j;
-    PetscErrorCode ierr;
+    //PetscErrorCode ierr;
 
     //PetscInitialize(&argc, &args, NULL, NULL);
     SlepcInitialize(&argc, &args, NULL, NULL);
@@ -107,12 +111,14 @@ int main(int argc, char **args)
 
         soar(MPI_COMM_WORLD, &M, &C1, &C2, &K, &b, n_arn, coeffs, &(Q[n_q]), &n_q);
 
+        /* // Write basis vectors to disk
         for(i=0; i<n_q; i++)
         {
-            sprintf(q_file, "arnoldi/basis_%d_%d.dat", ind_ip[j], i);
+            sprintf(q_file, "output/arnoldi/basis_%d_%d.dat", ind_ip[j], i);
             write_vec_file(MPI_COMM_WORLD, q_file, &(Q[i+n_q_tot]));
             //VecDestroy(&(Q[i]));
         }
+        */
         for(i=n_q; i<n_arn; i++)
             VecDestroy(&(Q[i+n_q_tot]));
 
@@ -124,8 +130,7 @@ int main(int argc, char **args)
     }
 
     // Get new basis vectors using POD orthogonalisation
-    pod_orthogonalise(PETSC_COMM_WORLD, Q, n_q_tot, 1e-12, &Q1, &pod_rank);
-
+    pod_orthogonalise(PETSC_COMM_WORLD, Q, n_q_tot, 0.0, &Q1, &pod_rank);
     // Free the old basis vector memory
     for(i=0; i<n_q_tot; i++)
     {
@@ -134,16 +139,65 @@ int main(int argc, char **args)
     PetscFree(Q);
     //PetscFree(Q_tmp);
 
-    // Free work space
+    // DEBUG: check if new basis vectors are orthogonal
+    //check_orthogonality(PETSC_COMM_WORLD, Q1, pod_rank);
+
+    // Generate reduced matrices
+    PetscPrintf(PETSC_COMM_WORLD, "Generating reduced matrices...\n");
+    project_matrix(PETSC_COMM_WORLD, &M, Q1, pod_rank, &Mr);
+    project_matrix(PETSC_COMM_WORLD, &K, Q1, pod_rank, &Kr);
+    project_matrix(PETSC_COMM_WORLD, &C1, Q1, pod_rank, &C1r);
+    project_matrix(PETSC_COMM_WORLD, &C2, Q1, pod_rank, &C2r);
+    project_vector(PETSC_COMM_WORLD, &b, Q1, pod_rank, &br);
+    PetscPrintf(PETSC_COMM_WORLD, "Done\n");
+
+    // Free big matrices
     MatDestroy(&M);
     MatDestroy(&K);
     MatDestroy(&C1);
     MatDestroy(&C2);
     VecDestroy(&b);
 
+    // Solve reduced problem
+    PetscPrintf(PETSC_COMM_WORLD, "Frequency sweep of reduced system...\n");
+    direct_sweep(PETSC_COMM_WORLD, &Mr, &C1r, &C2r, &Kr, &br,
+        omega_i, omega_f, omega_len, fit_list, n_fits, &ur);
+    PetscPrintf(PETSC_COMM_WORLD, "Done\n");
+
+    // Free reduced matrices
+    MatDestroy(&Mr);
+    MatDestroy(&Kr);
+    MatDestroy(&C1r);
+    MatDestroy(&C2r);
+    VecDestroy(&br);
+
+    // Recover full solution
+    PetscPrintf(PETSC_COMM_WORLD, "Recovering full solution...\n");
+    recover_vectors(PETSC_COMM_WORLD, ur, omega_len, Q1, pod_rank, &u_full);
+    PetscPrintf(PETSC_COMM_WORLD, "Done\n");
+
+    // Free the new basis vector memory
+    for(i=0; i<pod_rank; i++)
+    {
+        VecDestroy(&(Q1[i]));
+    }
+    PetscFree(Q1);
+
+    // Write solution to disk
+    for(i=0; i<omega_len; i++)
+    {
+        sprintf(q_file, "output/solution/%d.dat", i);
+        write_vec_file(MPI_COMM_WORLD, q_file, &(u_full[i]));
+        VecDestroy(&(u_full[i]));
+
+        VecDestroy(&(ur[i]));
+    }
+    PetscFree(u_full);
+    PetscFree(ur);
+
 
     SlepcFinalize();
     //PetscFinalize();
 
-    return ierr;
+    return 0;
 }

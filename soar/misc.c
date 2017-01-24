@@ -16,3 +16,4 @@ PetscReal* linspace(PetscReal start, PetscReal stop, PetscInt len)
 
     return array;
 }
+

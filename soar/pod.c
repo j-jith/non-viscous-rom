@@ -165,3 +165,21 @@ void pod_orthogonalise(MPI_Comm comm, Vec *Q, PetscInt n_q, PetscScalar tol,
     PetscPrintf(comm, "Done\n");
 
 }
+
+void check_orthogonality(MPI_Comm comm, Vec *Q, PetscInt n_q)
+{
+    PetscInt i, j;
+    PetscScalar val;
+
+    for(i=0; i<n_q; i++)
+    {
+        PetscPrintf(comm, "Row %D: ", i);
+
+        for(j=0; j<=i; j++)
+        {
+            VecDot(Q[i], Q[j], &val);
+            PetscPrintf(comm, "(%D, %D) = %e, ", i, j, val);
+        }
+        PetscPrintf(comm, "\n");
+    }
+}
