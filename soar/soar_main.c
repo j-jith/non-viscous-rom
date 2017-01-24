@@ -124,7 +124,7 @@ int main(int argc, char **args)
     }
 
     // Get new basis vectors using POD orthogonalisation
-    pod_orthogonalise(PETSC_COMM_WORLD, Q, n_q_tot, 1e-12, Q1, &pod_rank);
+    pod_orthogonalise(PETSC_COMM_WORLD, Q, n_q_tot, 1e-12, &Q1, &pod_rank);
 
     // Free the old basis vector memory
     for(i=0; i<n_q_tot; i++)
@@ -132,7 +132,7 @@ int main(int argc, char **args)
         VecDestroy(&(Q[i]));
     }
     PetscFree(Q);
-    PetscFree(Q_tmp);
+    //PetscFree(Q_tmp);
 
     // Free work space
     MatDestroy(&M);

@@ -94,9 +94,9 @@ void create_block_load(MPI_Comm comm, Vec *f, Vec *f1);
 // POD functions for orthoginalisation
 void get_covariance(MPI_Comm comm, Vec *Q, PetscInt n, Mat *R);
 void get_pod_eigenvectors(MPI_Comm comm, Mat *A, PetscScalar tol,
-        Vec *xr, PetscInt *rank);
+        Vec **xr, PetscInt *rank);
 void pod_orthogonalise(MPI_Comm comm, Vec *Q, PetscInt n_q, PetscScalar tol,
-        Vec *Q1, PetscInt *rank);
+        Vec **Q1, PetscInt *rank);
 
 
 // Miscellaneous - misc.c
