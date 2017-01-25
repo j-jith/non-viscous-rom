@@ -82,6 +82,7 @@ int main(int argc, char **args)
     fit_list = read_fitter(fit_file, weights_file, &n_fits);
 
     Q = NULL; n_q = 0; n_q_tot = 0;
+    PetscReal jk;
 
     if (n_ip == 1)
     {
@@ -95,6 +96,8 @@ int main(int argc, char **args)
     }
     else
     {
+        PetscMalloc(sizeof(Vec)*n_ip*n_arn, &Q);
+
         // Multi-point SOAR loop
         for(j=0; j<n_ip; j++)
         {
@@ -102,18 +105,7 @@ int main(int argc, char **args)
             coeffs = generate_local_coeffs(MPI_COMM_WORLD, fit_list, n_fits,
                     omega[ind_ip[j]], ind_ip[j]);
 
-            //PetscMalloc(sizeof(Vec)*n_arn, &Q);
-            //soar(MPI_COMM_WORLD, &M, &C1, &C2, &K, &b, n_arn, coeffs, Q, &n_q);
-            //for(i=0; i<n_q; i++)
-            //{
-            //    sprintf(q_file, "arnoldi/basis_%d_%d.dat", ind_ip[j], i);
-            //    write_vec_file(MPI_COMM_WORLD, q_file, &(Q[i]));
-            //    VecDestroy(&(Q[i]));
-            //}
-            //for(i=n_q; i<n_arn; i++)
-            //    VecDestroy(&(Q[i]));
-
-            //ierr = PetscRealloc(sizeof(Vec)*n_arn, &Q);
+            /*
             Q_tmp = realloc(Q, sizeof(Vec)*(n_q_tot+n_arn));
             if(Q_tmp == NULL)
             {
@@ -122,9 +114,10 @@ int main(int argc, char **args)
             }
             else
                 Q = Q_tmp;
+            */
 
             soar(MPI_COMM_WORLD, &M, &C1, &C2, &K, &b, n_arn, coeffs,
-                    &(Q[n_q]), &n_q);
+                    &(Q[n_q_tot]), &n_q);
 
             /* // Write basis vectors to disk
                for(i=0; i<n_q; i++)
@@ -134,8 +127,16 @@ int main(int argc, char **args)
             //VecDestroy(&(Q[i]));
             }
             */
+
+            /*
             for(i=n_q; i<n_arn; i++)
                 VecDestroy(&(Q[i+n_q_tot]));
+            */
+
+            /*
+            VecNorm(Q[n_q_tot+n_q-1], NORM_1, &jk);
+            PetscPrintf(PETSC_COMM_WORLD, "*** norm(%d) = %e ***\n", n_q_tot+n_q-1, jk);
+            */
 
             n_q_tot += n_q;
 
@@ -146,18 +147,23 @@ int main(int argc, char **args)
 
 
         // Get new basis vectors using POD orthogonalisation
-        pod_orthogonalise(PETSC_COMM_WORLD, Q, n_q_tot, 0.0, &Q1, &pod_rank);
+        pod_orthogonalise(PETSC_COMM_WORLD, Q, n_q_tot, 1e-10, &Q1, &pod_rank);
         // Free the old basis vector memory
         for(i=0; i<n_q_tot; i++)
         {
             VecDestroy(&(Q[i]));
         }
         PetscFree(Q);
+
     }
 
 
     // DEBUG: check if new basis vectors are orthogonal
     //check_orthogonality(PETSC_COMM_WORLD, Q1, pod_rank);
+
+    // DEBUG: check vector projection/recovery
+    //check_projection(PETSC_COMM_WORLD, b, Q1, pod_rank);
+
 
     // Generate reduced matrices
     PetscPrintf(PETSC_COMM_WORLD, "Generating reduced matrices...\n");

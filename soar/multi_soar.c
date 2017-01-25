@@ -65,7 +65,7 @@ void local_mat_mult(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, PetscReal **coeffs,
 
     VecSet(*result, 0);
     MatCreateVecs(*M, &result_tmp, NULL);
-    
+
     MatMult(*M, *qj, result_tmp);
     VecAXPY(*result, coeffs[1][0], result_tmp);
 
@@ -197,7 +197,7 @@ void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n, P
         //VecNorm(r, NORM_2, &r_norm);
         //PetscPrintf(comm, "DEBUG: Norm of r before = %le\n", r_norm);
 
-        for(i=0; i<j; i++)
+        for(i=0; i<=j; i++)
         {
             VecDot(r, q[i], &t_ij);
             VecAXPY(r, -t_ij, q[i]);
@@ -259,6 +259,13 @@ void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n, P
     PetscFree(p);
 
     PetscPrintf(comm, "Done. Returning %d Arnoldi basis.\n", n);
+
+    /* // DEBUG
+    PetscReal jk;
+    VecNorm(q[n-1], NORM_1, &jk);
+    PetscPrintf(comm, "*** norm(%d) = %e ***\n", n-1, jk);
+    */
+
     // return basis
     //return q;
 }

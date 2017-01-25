@@ -108,6 +108,8 @@ void recover_vector(MPI_Comm comm, Vec *u, Vec *Q, PetscInt n_q, Vec *u_new);
 void recover_vectors(MPI_Comm comm, Vec *u, PetscInt n_u, Vec *Q, PetscInt n_q,
         Vec **u_new);
 
+void check_projection(MPI_Comm comm, Vec u, Vec *Q, PetscInt n_q);
+
 // Miscellaneous - misc.c
 PetscReal* linspace(PetscReal start, PetscReal stop, PetscInt len);
 

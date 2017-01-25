@@ -80,7 +80,7 @@ int main(int argc, char **args)
 
         PetscPrintf(PETSC_COMM_WORLD, "... Constructing dynamic stiffness\n");
         MatDuplicate(K, MAT_COPY_VALUES, &A);
-        MatAXPY(A, -omega[i]*omega[i], M, DIFFERENT_NONZERO_PATTERN);
+        MatAXPY(A, omega[i]*omega[i], M, DIFFERENT_NONZERO_PATTERN);
         MatAXPY(A, g_real*omega[i], C1, DIFFERENT_NONZERO_PATTERN);
         MatAXPY(A, g_imag*omega[i], C2, DIFFERENT_NONZERO_PATTERN);
 
@@ -98,6 +98,7 @@ int main(int argc, char **args)
     }
 
     // Free work space
+    KSPDestroy(&ksp);
     MatDestroy(&M);
     MatDestroy(&K);
     MatDestroy(&C1);

@@ -72,6 +72,7 @@ void get_pod_eigenvectors(MPI_Comm comm, Mat *A, PetscScalar tol,
         {
             VecDuplicate(xr[0][0], &(xr[0][*rank]));
             EPSGetEigenvector(eps, i, xr[0][*rank], NULL);
+
             VecScale(xr[0][*rank], 1.0/sqrt(kr)); // Scale eigenvector by sqrt of evalue
             (*rank)++;
 
@@ -80,26 +81,6 @@ void get_pod_eigenvectors(MPI_Comm comm, Mat *A, PetscScalar tol,
         i++;
     }
     PetscPrintf(comm, "\n");
-
-    /*
-    for(i=1; i<nconv; i++)
-    {
-        EPSGetEigenvalue(eps, i, &kr, NULL);
-
-        // If the ratio of eigenvalue with the first eigenvalue
-        // is less than POD tolerance, ignore it
-        if(kr/kr1 > tol)
-        {
-            VecDuplicate(xr[0], &(xr[i]));
-            EPSGetEigenvector(eps, i, xr[i], NULL);
-            VecScale(xr[i], 1.0/sqrt(kr)); // Scale eigenvector by sqrt of evalue
-            (*rank)++;
-
-            PetscPrintf(comm, " %9f \n", (double)kr);
-        }
-        else break;
-    }
-    */
 
     PetscPrintf(comm, "Rank: %D (tol = %e)\n", *rank, tol);
 
@@ -123,6 +104,7 @@ void pod_orthogonalise(MPI_Comm comm, Vec *Q, PetscInt n_q, PetscScalar tol,
     Vec *xr=NULL;
     PetscInt i, j;
     PetscScalar *vals=NULL;
+    PetscScalar norm=0;
 
     // get covariance matrix of old basis vectors
     get_covariance(comm, Q, n_q, &R);
@@ -156,6 +138,9 @@ void pod_orthogonalise(MPI_Comm comm, Vec *Q, PetscInt n_q, PetscScalar tol,
         VecRestoreArray(xr[i], &vals);
         // Free POD eigenvector
         VecDestroy(&(xr[i]));
+
+        //VecNorm(Q1[0][i], NORM_2, &norm);
+        //VecScale(Q1[0][i], 1.0/norm);
     }
 
     PetscFree(xr);
