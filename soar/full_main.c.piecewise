@@ -7,9 +7,11 @@ int main(int argc, char **args)
     char damp_file[] = "../matrices/damping.dat";
     char load_file[] = "../matrices/force.dat";
     char sol_file[100];
+    char fit_file[] = "../fitting/fit_list.txt";
+    char weights_file[] = "../fitting/weights.txt";
 
 
-    PetscReal omega_i, omega_f, g_real, g_imag, mu=1.0;
+    PetscReal omega_i, omega_f, alpha;
     PetscInt omega_len;
     PetscReal *omega;
 
@@ -18,7 +20,7 @@ int main(int argc, char **args)
     Vec b0; // Small vectors
     Vec b, u; // Big vectors
 
-    PetscInt i;
+    PetscInt i, j;
 
     PetscInitialize(&argc, &args, NULL, NULL);
 
@@ -54,7 +56,8 @@ int main(int argc, char **args)
     MatDestroy(&K0); VecDestroy(&b0);
 
     // Read fit coeffs and weights from file
-    //Fitter *fit_list  = read_fitter(fit_file, weights_file, &n_fits);
+    PetscInt n_fits;
+    Fitter *fits  = read_fitter(fit_file, weights_file, &n_fits);
 
     // Create solver context
     KSP ksp; PC pc;
@@ -75,24 +78,36 @@ int main(int argc, char **args)
     {
         PetscPrintf(PETSC_COMM_WORLD, "Solving for frequency %f Hz\n", omega[i]/2/M_PI);
 
-
-        PetscPrintf(PETSC_COMM_WORLD, "... Constructing non-vicous damping matrix\n");
-        //create_block_damping(PETSC_COMM_WORLD, &C0, mu, omega, &C);
-        g_real = (mu*mu) / (mu*mu + omega[i]*omega[i]);
-        g_imag = (-mu*omega[i]) / (mu*mu + omega[i]*omega[i]);
-
         PetscPrintf(PETSC_COMM_WORLD, "... Constructing dynamic stiffness\n");
         MatDuplicate(K, MAT_COPY_VALUES, &A);
         MatAXPY(A, omega[i]*omega[i], M, DIFFERENT_NONZERO_PATTERN);
-        MatAXPY(A, g_real*omega[i], C1, DIFFERENT_NONZERO_PATTERN);
-        MatAXPY(A, g_imag*omega[i], C2, DIFFERENT_NONZERO_PATTERN);
+
+        for(j=0; j<n_fits; j++)
+        {
+            alpha = fits[j].weights[i];
+
+            // mass contribution
+            MatAXPY(A, omega[i]*omega[i]*alpha*fits[j].c1[2], C1,
+                    DIFFERENT_NONZERO_PATTERN);
+            MatAXPY(A, omega[i]*omega[i]*alpha*fits[j].c2[2], C2,
+                    DIFFERENT_NONZERO_PATTERN);
+
+            // damping contribution
+            MatAXPY(A, omega[i]*alpha*fits[j].c1[1], C1,
+                    DIFFERENT_NONZERO_PATTERN);
+            MatAXPY(A, omega[i]*alpha*fits[j].c2[1], C2,
+                    DIFFERENT_NONZERO_PATTERN);
+
+            // stiffness contribution
+            MatAXPY(A, alpha*fits[j].c1[0], C1, DIFFERENT_NONZERO_PATTERN);
+            MatAXPY(A, alpha*fits[j].c2[0], C2, DIFFERENT_NONZERO_PATTERN);
+        }
 
         PetscPrintf(PETSC_COMM_WORLD, "... Solving\n");
         VecSet(u, 0);
         KSPSetOperators(ksp, A, A);
         KSPSolve(ksp, b, u);
 
-        // In-loop clean-up
         MatDestroy(&A);
 
         // save solution

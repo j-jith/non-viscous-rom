@@ -37,6 +37,7 @@ typedef struct {
 // File I/O functions - file_io.c
 void read_mat_file(MPI_Comm comm, const char filename[], Mat *A);
 void read_vec_file(MPI_Comm comm, const char filename[], Vec *b);
+void write_mat_file(MPI_Comm comm, const char filename[], Mat *A);
 void write_vec_file(MPI_Comm comm, const char filename[], Vec *b);
 PetscInt count_rows(const char filename[]);
 Fitter* read_fitter(const char fit_file[], const char weight_file[], PetscInt *fit_len);
@@ -50,9 +51,6 @@ void soar(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b, PetscInt n, P
 //Vec* soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n, PetscReal** coeffs, PetscInt *q_size);
 
 void orthogonalize_arnoldi(MPI_Comm comm, Vec *q_old, PetscInt *n_old, Vec *q_new, PetscInt *n_new);
-
-void multi_soar(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b, PetscInt n_ip, PetscInt n_arn, PetscReal *omega, PetscInt n_omega, Fitter *fits, PetscInt n_fits);
-//Vec* multi_soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n_ip, PetscInt n_arn, PetscReal *omega, PetscInt n_omega, Fitter *fits, PetscInt n_fits);
 
 
 

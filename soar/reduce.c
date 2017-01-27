@@ -7,7 +7,8 @@ void project_matrix(MPI_Comm comm, Mat *M, Vec *Q, PetscInt n_q, Mat *A)
     PetscScalar val;
 
     MatCreate(comm, A);
-    MatSetSizes(*A, n_q, n_q, PETSC_DETERMINE, PETSC_DETERMINE);
+    //MatSetSizes(*A, n_q, n_q, PETSC_DETERMINE, PETSC_DETERMINE);
+    MatSetSizes(*A, n_q, n_q, n_q, n_q);
     MatSetType(*A, MATDENSE);
     MatSetUp(*A);
 
@@ -18,7 +19,7 @@ void project_matrix(MPI_Comm comm, Mat *M, Vec *Q, PetscInt n_q, Mat *A)
         MatMult(*M, Q[i], tmp);
         for(j=0; j<n_q; j++)
         {
-            VecDot(Q[j], Q[i], &val);
+            VecDot(Q[j], tmp, &val);
             MatSetValue(*A, j, i, val, INSERT_VALUES);
         }
     }
@@ -210,6 +211,7 @@ void direct_sweep_piecewise(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec
 
 }
 
+/*
 void direct_sweep(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
         PetscScalar omega_i, PetscScalar omega_f, PetscInt n_omega,
         PetscScalar mu, Vec **u)
@@ -239,7 +241,7 @@ void direct_sweep(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
         MatAXPY(A, omegas[i]*g_real, *C1, DIFFERENT_NONZERO_PATTERN);
         MatAXPY(A, omegas[i]*g_imag, *C2, DIFFERENT_NONZERO_PATTERN);
 
-        MatCreateVecs(A, NULL, &(u[0][i]));
+        MatCreateVecs(A, &(u[0][i]), NULL);
         VecSet(u[0][i], 0);
         KSPSetOperators(ksp, A, A);
         KSPSolve(ksp, *b, u[0][i]);
@@ -248,6 +250,41 @@ void direct_sweep(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
     }
 
     KSPDestroy(&ksp);
+
+}
+*/
+
+void direct_sweep(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
+        PetscScalar omega_i, PetscScalar omega_f, PetscInt n_omega,
+        PetscScalar mu, Vec **u)
+{
+    PetscScalar *omegas, omega2, g_real, g_imag;
+    PetscInt i;
+    Mat A;
+
+    omegas = linspace(omega_i, omega_f, n_omega);
+
+    PetscMalloc1(n_omega, u);
+
+    for(i=0; i<n_omega; i++)
+    {
+        omega2 = omegas[i]*omegas[i];
+        g_real = (mu*mu) / (mu*mu + omegas[i]*omegas[i]);
+        g_imag = (-mu*omegas[i]) / (mu*mu + omegas[i]*omegas[i]);
+
+        MatDuplicate(*K, MAT_COPY_VALUES, &A);
+        MatAXPY(A, omega2, *M, DIFFERENT_NONZERO_PATTERN);
+        MatAXPY(A, omegas[i]*g_real, *C1, DIFFERENT_NONZERO_PATTERN);
+        MatAXPY(A, omegas[i]*g_imag, *C2, DIFFERENT_NONZERO_PATTERN);
+
+        MatCreateVecs(A, &(u[0][i]), NULL);
+        VecSet(u[0][i], 0);
+
+        MatLUFactor(A, 0, 0, 0);
+        MatSolve(A, *b, u[0][i]);
+
+        MatDestroy(&A);
+    }
 
 }
 

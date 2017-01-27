@@ -105,17 +105,6 @@ int main(int argc, char **args)
             coeffs = generate_local_coeffs(MPI_COMM_WORLD, fit_list, n_fits,
                     omega[ind_ip[j]], ind_ip[j]);
 
-            /*
-            Q_tmp = realloc(Q, sizeof(Vec)*(n_q_tot+n_arn));
-            if(Q_tmp == NULL)
-            {
-                PetscPrintf(MPI_COMM_WORLD, "Error during REALLOC\n");
-                return -1;
-            }
-            else
-                Q = Q_tmp;
-            */
-
             soar(MPI_COMM_WORLD, &M, &C1, &C2, &K, &b, n_arn, coeffs,
                     &(Q[n_q_tot]), &n_q);
 
@@ -180,6 +169,15 @@ int main(int argc, char **args)
     MatDestroy(&C1);
     MatDestroy(&C2);
     VecDestroy(&b);
+
+    /*
+    // DEBUG: Write reduced matrices to disk
+    write_mat_file(PETSC_COMM_WORLD, "redmats/mass.dat", &Mr);
+    write_mat_file(PETSC_COMM_WORLD, "redmats/damp1.dat", &C1r);
+    write_mat_file(PETSC_COMM_WORLD, "redmats/damp2.dat", &C2r);
+    write_mat_file(PETSC_COMM_WORLD, "redmats/stiff.dat", &Kr);
+    write_vec_file(PETSC_COMM_WORLD, "redmats/load.dat", &br);
+    */
 
     // Solve reduced problem
     PetscPrintf(PETSC_COMM_WORLD, "Frequency sweep of reduced system...\n");

@@ -55,7 +55,7 @@ PetscReal** generate_local_coeffs(MPI_Comm comm, Fitter *fits, PetscInt n_fits, 
     return coeffs;
 }
 
-void local_mat_mult(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, PetscReal **coeffs, Vec *qj, Vec *pj, Vec *result)
+void local_mat_mult(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, PetscReal **coeffs, Vec *qj, Vec *pj, Vec *result)
 {
     // multiply qj with local damping mat and pj with local mass mat. put the result into 'result'.
     Vec result_tmp;
@@ -73,14 +73,14 @@ void local_mat_mult(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, PetscReal **coeffs,
     //VecNorm(*result, NORM_2, &norm);
     //PetscPrintf(comm, "DEBUG: Norm1 = %le.\n", norm);
 
-    MatMult(*Dv, *qj, result_tmp);
+    MatMult(*C1, *qj, result_tmp);
     VecAXPY(*result, coeffs[1][1], result_tmp);
 
     // DEBUG
     //VecNorm(*result, NORM_2, &norm);
     //PetscPrintf(comm, "DEBUG: Norm1 = %le.\n", norm);
 
-    MatMult(*Dh, *qj, result_tmp);
+    MatMult(*C2, *qj, result_tmp);
     VecAXPY(*result, coeffs[1][2], result_tmp);
 
     // DEBUG
@@ -94,14 +94,14 @@ void local_mat_mult(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, PetscReal **coeffs,
     //VecNorm(*result, NORM_2, &norm);
     //PetscPrintf(comm, "DEBUG: Norm1 = %le.\n", norm);
 
-    MatMult(*Dv, *pj, result_tmp);
+    MatMult(*C1, *pj, result_tmp);
     VecAXPY(*result, coeffs[0][0], result_tmp);
 
     // DEBUG
     //VecNorm(*result, NORM_2, &norm);
     //PetscPrintf(comm, "DEBUG: Norm1 = %le.\n", norm);
 
-    MatMult(*Dh, *pj, result_tmp);
+    MatMult(*C2, *pj, result_tmp);
     VecAXPY(*result, coeffs[0][1], result_tmp);
 
     // DEBUG
@@ -118,7 +118,7 @@ void local_mat_mult(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, PetscReal **coeffs,
 }
 
 
-void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n, PetscReal** coeffs, Vec *q, PetscInt *q_size)
+void soar(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b, PetscInt n, PetscReal** coeffs, Vec *q, PetscInt *q_size)
 {
     PetscPrintf(comm, "SOAR at interpolation point ...\n");
 
@@ -129,7 +129,7 @@ void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n, P
     Vec r_tmp_1; //, r_tmp_2;
     PetscReal r_norm; // for holding vector norm
     PetscScalar t_ij; // for holding dot product
-    
+
     PetscInt i, j, k; // loop counters
 
 
@@ -137,8 +137,8 @@ void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n, P
     PetscPrintf(comm, "Generating local stiffness matrix ...\n");
     MatDuplicate(*K, MAT_COPY_VALUES, &K0); // copy K to K0
     MatAXPY(K0, coeffs[2][0], *M, DIFFERENT_NONZERO_PATTERN);
-    MatAXPY(K0, coeffs[2][1], *Dv, DIFFERENT_NONZERO_PATTERN);
-    MatAXPY(K0, coeffs[2][2], *Dh, DIFFERENT_NONZERO_PATTERN);
+    MatAXPY(K0, coeffs[2][1], *C1, DIFFERENT_NONZERO_PATTERN);
+    MatAXPY(K0, coeffs[2][2], *C2, DIFFERENT_NONZERO_PATTERN);
 
 
     // allocate memory for vector arrays
@@ -178,8 +178,8 @@ void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n, P
     for(j=0; j<n-1; j++)
     {
         // multiply qj with local damping mat and pj with local mass mat
-        local_mat_mult(comm, M, Dv, Dh, coeffs, &(q[j]), &(p[j]), &r_tmp_1);
-        
+        local_mat_mult(comm, M, C1, C2, coeffs, &(q[j]), &(p[j]), &r_tmp_1);
+
         // DEBUG
         //VecNorm(r_tmp_1, NORM_2, &r_norm);
         //PetscPrintf(comm, "DEBUG: Norm of r_tmp_1 = %le\n", r_norm);
@@ -203,7 +203,7 @@ void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n, P
             VecAXPY(r, -t_ij, q[i]);
             VecAXPY(s, -t_ij, p[i]);
         }
-        
+
         VecNorm(r, NORM_2, &r_norm);
 
         // DEBUG
@@ -211,20 +211,20 @@ void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n, P
 
         if(r_norm <= TOLERANCE)
         {
-           PetscPrintf(comm, "Breakdown or Deflation. Not Implemented!. Exiting at j = %d.\n", j);
+            PetscPrintf(comm, "Breakdown or Deflation. Not Implemented!. Exiting at j = %d.\n", j);
 
-           // free memory
-           MatDestroy(&K0);
-           VecDestroy(&r); VecDestroy(&s); VecDestroy(&r_tmp_1); //VecDestroy(&r_tmp_2);
-           for(k=0; k<n; ++k)
-           {
-               VecDestroy(&(p[k]));
-           }
-           PetscFree(p);
+            // free memory
+            MatDestroy(&K0);
+            VecDestroy(&r); VecDestroy(&s); VecDestroy(&r_tmp_1); //VecDestroy(&r_tmp_2);
+            for(k=0; k<n; ++k)
+            {
+                VecDestroy(&(p[k]));
+            }
+            PetscFree(p);
 
-           // return basis
-           //return q;
-           return;
+            // return basis
+            //return q;
+            return;
         }
 
         MatCreateVecs(K0, &(q[j+1]), NULL);
@@ -261,10 +261,10 @@ void soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n, P
     PetscPrintf(comm, "Done. Returning %d Arnoldi basis.\n", n);
 
     /* // DEBUG
-    PetscReal jk;
-    VecNorm(q[n-1], NORM_1, &jk);
-    PetscPrintf(comm, "*** norm(%d) = %e ***\n", n-1, jk);
-    */
+       PetscReal jk;
+       VecNorm(q[n-1], NORM_1, &jk);
+       PetscPrintf(comm, "*** norm(%d) = %e ***\n", n-1, jk);
+       */
 
     // return basis
     //return q;
@@ -316,58 +316,5 @@ void orthogonalize_arnoldi(MPI_Comm comm, Vec *q_old, PetscInt *n_old, Vec *q_ne
 
     // increment the size of arnoldi basis
     (*n_old) += count;
-}
-
-void multi_soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n_ip, PetscInt n_arn, PetscReal *omega, PetscInt n_omega, Fitter *fits, PetscInt n_fits)
-//Vec* multi_soar(MPI_Comm comm, Mat *M, Mat *Dv, Mat *Dh, Mat *K, Vec *b, PetscInt n_ip, PetscInt n_arn, PetscReal *omega, PetscInt n_omega, Fitter *fits, PetscInt n_fits)
-{
-    PetscReal *ind_tmp, **coeffs;
-    PetscInt i, j, *interp_ind;
-    //Vec *Q_old, *Q_new;
-    //PetscInt nq_old, nq_new;
-    Vec *Q;
-    PetscInt n_q, n_q_tot=0;
-    char filename[100];
-
-    // find n_ip evenly distributed indices in omega
-    ind_tmp = linspace(0, n_omega-1, n_ip+1);
-    PetscMalloc(sizeof(PetscInt)*n_ip, &interp_ind);
-    for(i=0; i<n_ip; i++)
-    {
-        interp_ind[i] = (PetscInt)round((ind_tmp[i] + ind_tmp[i+1])/2);
-    }
-
-    for(i=0; i<n_ip; i++)
-    {
-        PetscPrintf(comm, "Interpolation point = %f Hz [%d/%d] ...\n", omega[interp_ind[i]]/2/M_PI, i+1, n_ip);
-        coeffs = generate_local_coeffs(comm, fits, n_fits, omega[interp_ind[i]], interp_ind[i]);
-        
-        /*if(i==0)
-        {
-            Q_old = soar(comm, M, Dv, Dh, K, b, n_arn, coeffs, &nq_old);
-        }
-        else
-        {
-            Q_new = soar(comm, M, Dv, Dh, K, b, n_arn, coeffs, &nq_new);
-            orthogonalize_arnoldi(comm, Q_old, &nq_old, Q_new, &nq_new);
-        }*/
-
-        Q = (Vec*)malloc(sizeof(Vec)*n_arn);
-        soar(comm, M, Dv, Dh, K, b, n_arn, coeffs, Q, &n_q);
-
-        for(j=0; j<n_q; j++)
-        {
-            sprintf(filename, "arnoldi/union_%d.dat", n_q_tot+j);
-            write_vec_file(comm, filename, &(Q[j]));
-            VecDestroy(&(Q[j]));
-        }
-        PetscFree(Q); //Q = NULL;
-
-        n_q_tot += n_q;
-        
-    }
-
-    //return Q_old;
-
 }
 

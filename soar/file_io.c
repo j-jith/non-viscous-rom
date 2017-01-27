@@ -40,6 +40,22 @@ void read_vec_file(MPI_Comm comm, const char filename[], Vec *b)
     PetscPrintf(comm, "Shape: (%d, )\n", n_rows);
 }
 
+void write_mat_file(MPI_Comm comm, const char filename[], Mat *A)
+{
+    PetscInt n_rows, n_cols;
+    PetscPrintf(comm, "Writing matrix to %s ...\n", filename);
+
+    MatGetSize(*A, &n_rows, &n_cols);
+    PetscPrintf(comm, "Shape: (%d, %d)\n", n_rows, n_cols);
+
+    PetscViewer viewer;
+    PetscViewerBinaryOpen(comm, filename, FILE_MODE_WRITE, &viewer);
+
+    MatView(*A, viewer);
+
+    PetscViewerDestroy(&viewer);
+}
+
 void write_vec_file(MPI_Comm comm, const char filename[], Vec *b)
 {
     PetscInt n_rows = 0;
@@ -50,7 +66,7 @@ void write_vec_file(MPI_Comm comm, const char filename[], Vec *b)
 
     PetscViewer viewer;
     PetscViewerBinaryOpen(comm, filename, FILE_MODE_WRITE, &viewer);
-    
+
     VecView(*b, viewer);
 
     PetscViewerDestroy(&viewer);
