@@ -4,10 +4,10 @@ from piecewise_fit_greedy import greedy_fit, get_weights
 #from myparams import *
 
 f_0 = 300
-f_1 = 600
-n_f = 150
+f_1 = 900
+n_f = 300
 
-mu = 1.0
+mu = 825.056
 
 def func1(x):
     #s = 1j*x

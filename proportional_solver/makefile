@@ -4,8 +4,8 @@ LIBFILES =
 TARGET = solver
 OBJFILES = solver.o
 
-include ${PETSC_DIR}/petsc/conf/variables
-include ${PETSC_DIR}/petsc/conf/rules
+include ${PETSC_DIR}/lib/petsc/conf/variables
+include ${PETSC_DIR}/lib/petsc/conf/rules
 
 all: ${TARGET}
 

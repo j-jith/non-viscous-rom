@@ -104,7 +104,7 @@ void pod_orthogonalise(MPI_Comm comm, Vec *Q, PetscInt n_q, PetscScalar tol,
     Vec *xr=NULL;
     PetscInt i, j;
     PetscScalar *vals=NULL;
-    PetscScalar norm=0;
+    //PetscScalar norm=0;
 
     // get covariance matrix of old basis vectors
     get_covariance(comm, Q, n_q, &R);

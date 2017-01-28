@@ -46,14 +46,18 @@ if __name__ == '__main__':
     #dump2petsc(struct.K.mat(), output_dir+'/stiffness.dat')
     #dump2petsc(struct.f.vec(), output_dir+'/force.dat')
 
-    print('Splitting real and imaginary components...')
-    # Proportional Damping matrix
+    #print('Splitting real and imaginary components...')
     M = struct.M.mat()
     K = struct.K.mat()
-    C = K.duplicate(copy=True)
-    C.scale(0.01)
     f = struct.f.vec()
 
+    # Proportional Damping matrix
+    alpha = 7.03582860e+01; beta = 5.16040501e-06
+    C = K.duplicate(copy=True)
+    C.scale(beta)
+    C.axpy(alpha, M)
+
+    print('Writing matrices to disk...')
     dump2petsc(M, output_dir+'/mass.dat')
     dump2petsc(K, output_dir+'/stiffness.dat')
     dump2petsc(C, output_dir+'/damping.dat')

@@ -9,7 +9,7 @@ int main(int argc, char **args)
     char sol_file[100];
 
 
-    PetscReal omega_i, omega_f, g_real, g_imag, mu=1.0;
+    PetscReal omega_i, omega_f, g_real, g_imag, mu=825.056;
     PetscInt omega_len;
     PetscReal *omega;
 
@@ -96,7 +96,7 @@ int main(int argc, char **args)
         MatDestroy(&A);
 
         // save solution
-        sprintf(sol_file, "output/solution/%i.dat", i);
+        sprintf(sol_file, "output/full/solution/%i.dat", i);
         write_vec_file(MPI_COMM_WORLD, sol_file, &u);
     }
 

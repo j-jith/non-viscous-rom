@@ -211,7 +211,7 @@ int main(int argc, char **args)
     // Write solution to disk
     for(i=0; i<omega_len; i++)
     {
-        sprintf(q_file, "output/solution/%d.dat", i);
+        sprintf(q_file, "output/red/solution/%d.dat", i);
         write_vec_file(MPI_COMM_WORLD, q_file, &(u_full[i]));
         VecDestroy(&(u_full[i]));
 

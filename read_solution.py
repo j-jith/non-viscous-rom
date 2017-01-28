@@ -16,19 +16,25 @@ from create_dir import create_dir
 
 if __name__ == '__main__':
 
-    # # full solution
+    # # viscous full solution
     # solution_dir = 'output/full/'
     # solution_prefix = 'solution_'
     # output_file = 'output/point_full.csv'
     # output_dir = 'output/plot/'
 
-    # SOAR
-    solution_dir = 'soar/output/solution/'
+    # non-viscous full solution
+    solution_dir = 'soar/output/full/solution/'
     solution_prefix = ''
-    output_file = 'soar/output/point_red.csv'
-    output_dir = 'soar/output/plot/'
+    output_file = 'soar/output/point_full.csv'
+    output_dir = 'soar/output/full/plot/'
 
-    solution_n = 150 # total number of solutions
+    # # SOAR
+    # solution_dir = 'soar/output/red/solution/'
+    # solution_prefix = ''
+    # output_file = 'soar/output/point_red.csv'
+    # output_dir = 'soar/output/red/plot/'
+
+    solution_n = 300 # total number of solutions
     solution_point = np.array([0.12, 0., 0.01])
     solution_axis = 2
 
