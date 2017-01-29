@@ -9,7 +9,7 @@ int main(int argc, char **args)
     char sol_file[100];
 
 
-    PetscReal omega_i, omega_f, g_real, g_imag, mu=825.056;
+    PetscReal omega_i, omega_f, g_real, g_imag, mu=4129.28;
     PetscInt omega_len;
     PetscReal *omega;
 

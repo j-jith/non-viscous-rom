@@ -2,6 +2,9 @@
 
 int main(int argc, char **args)
 {
+    PetscInt pod_tolerance = 0;
+    //PetscScalar mu = 4129.28;
+    
     char mass_file[] = "../matrices/mass.dat";
     char stiff_file[] = "../matrices/stiffness.dat";
     char damp_file[] = "../matrices/damping.dat";
@@ -21,7 +24,8 @@ int main(int argc, char **args)
 
     Fitter *fit_list;
     PetscReal **coeffs;
-    Vec *Q, *Q_tmp, *Q1=NULL;
+    Vec *Q, *Q1=NULL;
+    //Vec *Q_tmp;
     PetscInt n_q=0, n_q_tot=0, pod_rank=0;
 
     Mat M0, K0, C0; // Small matrices
@@ -82,7 +86,7 @@ int main(int argc, char **args)
     fit_list = read_fitter(fit_file, weights_file, &n_fits);
 
     Q = NULL; n_q = 0; n_q_tot = 0;
-    PetscReal jk;
+    //PetscReal jk;
 
     if (n_ip == 1)
     {
@@ -136,7 +140,7 @@ int main(int argc, char **args)
 
 
         // Get new basis vectors using POD orthogonalisation
-        pod_orthogonalise(PETSC_COMM_WORLD, Q, n_q_tot, 1e-10, &Q1, &pod_rank);
+        pod_orthogonalise(PETSC_COMM_WORLD, Q, n_q_tot, pod_tolerance, &Q1, &pod_rank);
         // Free the old basis vector memory
         for(i=0; i<n_q_tot; i++)
         {
@@ -181,12 +185,13 @@ int main(int argc, char **args)
 
     // Solve reduced problem
     PetscPrintf(PETSC_COMM_WORLD, "Frequency sweep of reduced system...\n");
+
     direct_sweep(PETSC_COMM_WORLD, &Mr, &C1r, &C2r, &Kr, &br,
-        omega_i, omega_f, omega_len, 1.0, &ur);
-    /*
-    direct_sweep_approx(PETSC_COMM_WORLD, &Mr, &C1r, &C2r, &Kr, &br,
-        omega_i, omega_f, omega_len, fit_list, n_fits, &ur);
-    */
+        omega_i, omega_f, omega_len, mu, &ur);
+    
+    //direct_sweep_piecewise(PETSC_COMM_WORLD, &Mr, &C1r, &C2r, &Kr, &br,
+    //    omega_i, omega_f, omega_len, fit_list, n_fits, &ur);
+    
     PetscPrintf(PETSC_COMM_WORLD, "Done\n");
 
     // Free reduced matrices

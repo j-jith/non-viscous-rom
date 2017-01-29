@@ -9,6 +9,7 @@ soar/output/
 *.pyc
 *.swp
 *.bkp
+*.*~
 
 # shell scripts
 */valgrind.sh
@@ -19,3 +20,4 @@ soar/output/
 */soar
 */reduce
 */full
+*/undamped

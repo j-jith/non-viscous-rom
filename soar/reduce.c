@@ -160,15 +160,9 @@ void direct_sweep_piecewise(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec
         PetscScalar omega_i, PetscScalar omega_f, PetscInt n_omega,
         Fitter *fits, PetscInt n_fits, Vec **u)
 {
-    PetscScalar *omegas, alpha, omega2;
+  PetscScalar *omegas, alpha, beta, omega2;
     PetscInt i, j;
     Mat A;
-    KSP ksp; PC pc;
-
-    KSPCreate(comm, &ksp);
-    KSPSetType(ksp, KSPPREONLY);
-    KSPGetPC(ksp, &pc);
-    PCSetType(pc, PCLU);
 
     omegas = linspace(omega_i, omega_f, n_omega);
 
@@ -181,78 +175,32 @@ void direct_sweep_piecewise(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec
         MatDuplicate(*K, MAT_COPY_VALUES, &A);
         MatAXPY(A, omega2, *M, DIFFERENT_NONZERO_PATTERN);
 
+	alpha = 0; beta = 0;
         for(j=0; j<n_fits; j++)
         {
-            alpha = fits[j].weights[i];
-
-            // mass contribution
-            MatAXPY(A, omega2*alpha*fits[j].c1[2], *C1, DIFFERENT_NONZERO_PATTERN);
-            MatAXPY(A, omega2*alpha*fits[j].c2[2], *C2, DIFFERENT_NONZERO_PATTERN);
-
-            // damping contribution
-            MatAXPY(A, omegas[i]*alpha*fits[j].c1[1], *C1,
-                    DIFFERENT_NONZERO_PATTERN);
-            MatAXPY(A, omegas[i]*alpha*fits[j].c2[1], *C2,
-                    DIFFERENT_NONZERO_PATTERN);
-
-            // stiffness contribution
-            MatAXPY(A, alpha*fits[j].c1[0], *C1, DIFFERENT_NONZERO_PATTERN);
-            MatAXPY(A, alpha*fits[j].c2[0], *C2, DIFFERENT_NONZERO_PATTERN);
+	    alpha += fits[j].weights[i] * ( omega2*fits[j].c1[2]
+					   + omegas[i]*fits[j].c1[1]
+					   + fits[j].c1[0] ) ;
+	      
+	    beta += fits[j].weights[i] * ( omega2*fits[j].c2[2]
+					   + omegas[i]*fits[j].c2[1]
+					   + fits[j].c2[0] ) ;
         }
-
-        MatCreateVecs(A, NULL, &(u[0][i]));
-        KSPSetOperators(ksp, A, A);
-        KSPSolve(ksp, *b, u[0][i]);
-
-        MatDestroy(&A);
-    }
-
-    KSPDestroy(&ksp);
-
-}
-
-/*
-void direct_sweep(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
-        PetscScalar omega_i, PetscScalar omega_f, PetscInt n_omega,
-        PetscScalar mu, Vec **u)
-{
-    PetscScalar *omegas, omega2, g_real, g_imag;
-    PetscInt i;
-    Mat A;
-    KSP ksp; PC pc;
-
-    KSPCreate(comm, &ksp);
-    KSPSetType(ksp, KSPPREONLY);
-    KSPGetPC(ksp, &pc);
-    PCSetType(pc, PCLU);
-
-    omegas = linspace(omega_i, omega_f, n_omega);
-
-    PetscMalloc1(n_omega, u);
-
-    for(i=0; i<n_omega; i++)
-    {
-        omega2 = omegas[i]*omegas[i];
-        g_real = (mu*mu) / (mu*mu + omegas[i]*omegas[i]);
-        g_imag = (-mu*omegas[i]) / (mu*mu + omegas[i]*omegas[i]);
-
-        MatDuplicate(*K, MAT_COPY_VALUES, &A);
-        MatAXPY(A, omega2, *M, DIFFERENT_NONZERO_PATTERN);
-        MatAXPY(A, omegas[i]*g_real, *C1, DIFFERENT_NONZERO_PATTERN);
-        MatAXPY(A, omegas[i]*g_imag, *C2, DIFFERENT_NONZERO_PATTERN);
+	
+        MatAXPY(A, alpha, *C1, DIFFERENT_NONZERO_PATTERN);
+        MatAXPY(A, beta, *C2, DIFFERENT_NONZERO_PATTERN);
 
         MatCreateVecs(A, &(u[0][i]), NULL);
         VecSet(u[0][i], 0);
-        KSPSetOperators(ksp, A, A);
-        KSPSolve(ksp, *b, u[0][i]);
+
+        MatLUFactor(A, 0, 0, 0);
+        MatSolve(A, *b, u[0][i]);
 
         MatDestroy(&A);
     }
 
-    KSPDestroy(&ksp);
 
 }
-*/
 
 void direct_sweep(MPI_Comm comm, Mat *M, Mat *C1, Mat *C2, Mat *K, Vec *b,
         PetscScalar omega_i, PetscScalar omega_f, PetscInt n_omega,

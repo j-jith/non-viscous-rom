@@ -16,23 +16,49 @@ from create_dir import create_dir
 
 if __name__ == '__main__':
 
-    # # viscous full solution
-    # solution_dir = 'output/full/'
-    # solution_prefix = 'solution_'
-    # output_file = 'output/point_full.csv'
-    # output_dir = 'output/plot/'
+    if len(sys.argv) < 2:
+        print("Usage: read_solution.py <case name>\ncase names: undamped, viscous, nonviscous, soar")
+        sys.exit()
+    
+    if sys.argv[1] == "undamped":    
+        # undamped full solution
+        print('Case: undamped full solution')
+        complex_split = False
+        solution_dir = 'proportional_solver/output/undamped/'
+        solution_prefix = 'solution_'
+        output_file = 'proportional_solver/output/point_undamped.csv'
+        output_dir = 'proportional_solver/output/undamped/output/plot/'
+        
+    elif sys.argv[1] == "viscous":
+        # viscous full solution
+        print('Case: viscously damped full solution')
+        complex_split = True
+        solution_dir = 'proportional_solver/output/full/'
+        solution_prefix = 'solution_'
+        output_file = 'proportional_solver/output/point_full.csv'
+        output_dir = 'proportional_solver/output/full/output/plot/'
 
-    # non-viscous full solution
-    solution_dir = 'soar/output/full/solution/'
-    solution_prefix = ''
-    output_file = 'soar/output/point_full.csv'
-    output_dir = 'soar/output/full/plot/'
+    elif sys.argv[1] == "nonviscous":
+        # non-viscous full solution
+        print('Case: non-viscously damped full solution')
+        complex_split = True
+        solution_dir = 'soar/output/full/solution/'
+        solution_prefix = ''
+        output_file = 'soar/output/point_full.csv'
+        output_dir = 'soar/output/full/plot/'
 
-    # # SOAR
-    # solution_dir = 'soar/output/red/solution/'
-    # solution_prefix = ''
-    # output_file = 'soar/output/point_red.csv'
-    # output_dir = 'soar/output/red/plot/'
+    elif sys.argv[1] == "soar":
+        # SOAR
+        print('Case: non-viscously damped SOAR solution')
+        complex_split = True
+        solution_dir = 'soar/output/red/solution/'
+        solution_prefix = ''
+        output_file = 'soar/output/point_red.csv'
+        output_dir = 'soar/output/red/plot/'
+        
+    else:
+        print("Usage: read_solution.py <case name>\ncase names: undamped, viscous, nonviscous, soar")
+        sys.exit()
 
     solution_n = 300 # total number of solutions
     solution_point = np.array([0.12, 0., 0.01])
@@ -82,16 +108,24 @@ if __name__ == '__main__':
         u_binary.load(viewer)
         viewer.destroy()
 
-        ll = u_binary.getSize()
-        u_array = u_binary.getArray()
+        if not complex_split:
+            u_array = u_binary.getArray()
+            sol_real.vector()[:] = u_array
 
-        sol_real.vector()[:] = u_array[:ll//2]
-        sol_imag.vector()[:] = u_array[ll//2:]
+            point_file.write('{}, {}\n'.format(i, sol_real(pp)[solution_axis]))
 
-        point_file.write('{}, {}, {}\n'.format(i, sol_real(pp)[solution_axis], sol_imag(pp)[solution_axis]))
+            real_file << sol_real
+        else:
+            ll = u_binary.getSize()
+            u_array = u_binary.getArray()
 
-        real_file << sol_real
-        imag_file << sol_imag
+            sol_real.vector()[:] = u_array[:ll//2]
+            sol_imag.vector()[:] = u_array[ll//2:]
+
+            point_file.write('{}, {}, {}\n'.format(i, sol_real(pp)[solution_axis], sol_imag(pp)[solution_axis]))
+
+            real_file << sol_real
+            imag_file << sol_imag
 
     point_file.close()
 

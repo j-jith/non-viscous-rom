@@ -264,10 +264,8 @@ int main(int argc, char **args)
     PetscInt n_f;
 
 
-    Mat M0, K0, C0; // Small matrices
-    Mat M, K, C, A; // Big matrices
-    Vec b0; // Small vectors
-    Vec b, u; // Big vectors
+    Mat M0, K0, A; // Small matrices
+    Vec b0, u; // Small vectors
 
     // Loop counter
     PetscInt i = 0;
@@ -277,7 +275,6 @@ int main(int argc, char **args)
 
     char mass_file[100] = "../matrices/mass.dat";
     char stiff_file[100] = "../matrices/stiffness.dat";
-    char damp_file[100] = "../matrices/damping.dat";
     char load_file[100] = "../matrices/force.dat";
     char sol_file[100] = "../output/full/solution.dat";
 
@@ -298,34 +295,7 @@ int main(int argc, char **args)
     // Read matrices from disk
     read_mat_file(PETSC_COMM_WORLD, mass_file, &M0);
     read_mat_file(PETSC_COMM_WORLD, stiff_file, &K0);
-    read_mat_file(PETSC_COMM_WORLD, damp_file, &C0);
     read_vec_file(PETSC_COMM_WORLD, load_file, &b0);
-
-    MatAssemblyBegin(M0, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(M0, MAT_FINAL_ASSEMBLY);
-    MatAssemblyBegin(K0, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(K0, MAT_FINAL_ASSEMBLY);
-    MatAssemblyBegin(C0, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(C0, MAT_FINAL_ASSEMBLY);
-    VecAssemblyBegin(b0); VecAssemblyEnd(b0);
-
-    //PetscSequentialPhaseBegin(PETSC_COMM_SELF, 1);
-
-    // Create block matrices
-    create_block_mass(PETSC_COMM_WORLD, &M0, &M);
-    create_block_stiffness(PETSC_COMM_WORLD, &K0, &K);
-    create_block_damping(PETSC_COMM_WORLD, &C0, &C);
-    create_block_load(PETSC_COMM_WORLD, &b0, &b);
-
-    //PetscSequentialPhaseEnd(PETSC_COMM_SELF, 1);
-
-    MatAssemblyBegin(M, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(M, MAT_FINAL_ASSEMBLY);
-    MatAssemblyBegin(K, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(K, MAT_FINAL_ASSEMBLY);
-    MatAssemblyBegin(C, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(C, MAT_FINAL_ASSEMBLY);
-    VecAssemblyBegin(b); VecAssemblyEnd(b);
-
-    // Destroy small matrices
-    MatDestroy(&M0);
-    MatDestroy(&K0);
-    MatDestroy(&C0);
-    VecDestroy(&b0);
 
 
     // Create solver context
@@ -344,7 +314,7 @@ int main(int argc, char **args)
     // Create matrix for dynamic stiffness
     //MatDuplicate(K, MAT_DO_NOT_COPY_VALUES, &A);
     // Create a right vector to store the solution
-    MatCreateVecs(K, &u, NULL);
+    MatCreateVecs(K0, &u, NULL);
 
     for(i=0; i<n_f; i++)
     {
@@ -352,29 +322,25 @@ int main(int argc, char **args)
         PetscPrintf(PETSC_COMM_WORLD, "Solving for frequency %f Hz\n", omega/2/M_PI);
 
         PetscPrintf(PETSC_COMM_WORLD, "... Constructing dynamic stiffness\n");
-        MatDuplicate(K, MAT_COPY_VALUES, &A);
-        //MatCopy(K, A, DIFFERENT_NONZERO_PATTERN);
-        MatAXPY(A, -omega*omega, M, DIFFERENT_NONZERO_PATTERN);
-        MatAXPY(A, omega, C, DIFFERENT_NONZERO_PATTERN);
+        MatDuplicate(K0, MAT_COPY_VALUES, &A);
+        MatAXPY(A, -omega*omega, M0, DIFFERENT_NONZERO_PATTERN);
 
         PetscPrintf(PETSC_COMM_WORLD, "... Solving\n");
         VecSet(u, 0);
         KSPSetOperators(ksp, A, A);
-        KSPSolve(ksp, b, u);
+        KSPSolve(ksp, b0, u);
         MatDestroy(&A);
 
         // save solution
-        sprintf(sol_file, "output/full/solution_%i.dat", i);
+        sprintf(sol_file, "output/undamped/solution_%i.dat", i);
         write_vec_file(MPI_COMM_WORLD, sol_file, &u);
     }
 
 
     // Free work space
-    MatDestroy(&M);
-    MatDestroy(&K);
-    MatDestroy(&C);
-    //MatDestroy(&A);
-    VecDestroy(&b);
+    MatDestroy(&M0);
+    MatDestroy(&K0);
+    VecDestroy(&b0);
     VecDestroy(&u);
 
     PetscFinalize();
